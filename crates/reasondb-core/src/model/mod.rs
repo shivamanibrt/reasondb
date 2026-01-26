@@ -7,6 +7,7 @@
 //! - [`PageNode`] - The fundamental unit of the reasoning tree
 //! - [`NodeMetadata`] - Additional node attributes
 //! - [`SearchFilter`] - Criteria for filtering documents during search
+//! - [`DocumentRelation`] - Links between related documents
 //!
 //! # Module Structure
 //!
@@ -14,10 +15,12 @@
 //! - `document` - Document definition and operations
 //! - `node` - PageNode and NodeMetadata definitions
 //! - `filter` - SearchFilter for queries
+//! - `relation` - Document relationship definitions
 
 mod document;
 mod filter;
 mod node;
+mod relation;
 mod table;
 
 #[cfg(test)]
@@ -27,6 +30,7 @@ mod tests;
 pub use document::Document;
 pub use filter::SearchFilter;
 pub use node::{NodeMetadata, PageNode};
+pub use relation::{DocumentRelation, RelationBuilder, RelationType};
 pub use table::Table;
 
 use serde::{Deserialize, Deserializer, Serializer};

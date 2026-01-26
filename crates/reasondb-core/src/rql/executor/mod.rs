@@ -66,8 +66,11 @@ impl NodeStore {
         // Find documents using existing infrastructure
         let documents = self.find_documents(&filter)?;
 
+        // Apply RELATED clause filtering
+        let related_filtered = self.apply_related_filter(documents, query.related.as_ref())?;
+
         // Apply additional filtering from WHERE clause
-        let filtered = self.apply_where_filter(documents, query.where_clause.as_ref());
+        let filtered = self.apply_where_filter(related_filtered, query.where_clause.as_ref());
 
         // Sort if ORDER BY specified
         let mut sorted = filtered;
@@ -278,6 +281,79 @@ impl NodeStore {
         }
     }
 
+    /// Apply RELATED clause filtering to documents.
+    fn apply_related_filter(
+        &self,
+        documents: Vec<Document>,
+        related: Option<&RelatedClause>,
+    ) -> Result<Vec<Document>> {
+        let Some(related_clause) = related else {
+            return Ok(documents);
+        };
+
+        // Get the set of related document IDs
+        let related_ids = self.get_related_document_ids(
+            &related_clause.document_id,
+            related_clause.relation_type.as_ref(),
+        )?;
+
+        // Filter documents to only include related ones
+        Ok(documents
+            .into_iter()
+            .filter(|doc| related_ids.contains(&doc.id))
+            .collect())
+    }
+
+    /// Apply RELATED clause filtering to documents with scores.
+    fn apply_related_filter_with_scores(
+        &self,
+        documents: Vec<(Document, f32, Option<String>)>,
+        related: Option<&RelatedClause>,
+    ) -> Result<Vec<(Document, f32, Option<String>)>> {
+        let Some(related_clause) = related else {
+            return Ok(documents);
+        };
+
+        // Get the set of related document IDs
+        let related_ids = self.get_related_document_ids(
+            &related_clause.document_id,
+            related_clause.relation_type.as_ref(),
+        )?;
+
+        // Filter documents to only include related ones
+        Ok(documents
+            .into_iter()
+            .filter(|(doc, _, _)| related_ids.contains(&doc.id))
+            .collect())
+    }
+
+    /// Get document IDs related to a given document.
+    fn get_related_document_ids(
+        &self,
+        document_id: &str,
+        relation_filter: Option<&RelationFilter>,
+    ) -> Result<HashSet<String>> {
+        use crate::model::RelationType;
+
+        // Convert RQL RelationFilter to model RelationType
+        let relation_type = relation_filter.map(|rf| match rf {
+            RelationFilter::Any => None,
+            RelationFilter::References => Some(RelationType::References),
+            RelationFilter::ReferencedBy => Some(RelationType::ReferencedBy),
+            RelationFilter::FollowsUp => Some(RelationType::FollowsUp),
+            RelationFilter::FollowedUpBy => Some(RelationType::FollowedUpBy),
+            RelationFilter::Supersedes => Some(RelationType::Supersedes),
+            RelationFilter::SupersededBy => Some(RelationType::SupersededBy),
+            RelationFilter::ParentOf => Some(RelationType::ParentOf),
+            RelationFilter::ChildOf => Some(RelationType::ChildOf),
+            RelationFilter::Custom(s) => Some(RelationType::Custom(s.clone())),
+        }).flatten();
+
+        // Get related document IDs using the store's relation methods
+        let related_ids = self.get_related_documents(document_id, relation_type.as_ref())?;
+        Ok(related_ids.into_iter().collect())
+    }
+
     /// Apply WHERE clause filtering to documents with scores.
     fn apply_where_filter_with_scores(
         &self,
@@ -305,21 +381,28 @@ impl NodeStore {
             // Execute BM25 search
             let results = index.search(&search_clause.query, 1000, Some(table_id))?;
             let mut docs = Vec::new();
-            let seen: HashSet<String> = HashSet::new();
+            let mut seen: HashSet<String> = HashSet::new();
             for hit in results {
                 if seen.contains(&hit.document_id) {
                     continue;
                 }
+                seen.insert(hit.document_id.clone());
                 if let Ok(Some(doc)) = self.get_document(&hit.document_id) {
                     docs.push((doc, hit.score, hit.snippet.clone()));
                 }
             }
+
+            // Apply RELATED filter
+            let docs = self.apply_related_filter_with_scores(docs, query.related.as_ref())?;
             Ok(docs)
         } else {
             // Fall back to filter-based search
             let mut filter = query.to_search_filter();
             filter.table_id = Some(table_id.to_string());
             let docs = self.find_documents(&filter)?;
+
+            // Apply RELATED filter
+            let docs = self.apply_related_filter(docs, query.related.as_ref())?;
             Ok(docs.into_iter().map(|d| (d, 0.0, None)).collect())
         }
     }

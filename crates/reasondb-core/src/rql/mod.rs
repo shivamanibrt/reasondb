@@ -149,6 +149,7 @@ pub struct QueryBuilder {
     conditions: Vec<Condition>,
     search: Option<SearchClause>,
     reason: Option<ReasonClause>,
+    related: Option<RelatedClause>,
     order_by: Option<OrderByClause>,
     limit: Option<usize>,
     offset: Option<usize>,
@@ -266,6 +267,24 @@ impl QueryBuilder {
         self
     }
 
+    /// Filter by documents related to a specific document.
+    pub fn related_to(mut self, document_id: &str) -> Self {
+        self.related = Some(RelatedClause {
+            document_id: document_id.to_string(),
+            relation_type: None,
+        });
+        self
+    }
+
+    /// Filter by documents with a specific relationship to another document.
+    pub fn related_with_type(mut self, document_id: &str, relation_type: RelationFilter) -> Self {
+        self.related = Some(RelatedClause {
+            document_id: document_id.to_string(),
+            relation_type: Some(relation_type),
+        });
+        self
+    }
+
     /// Set ordering.
     pub fn order_by(mut self, field: &str, direction: SortDirection) -> Self {
         self.order_by = Some(OrderByClause {
@@ -317,6 +336,7 @@ impl QueryBuilder {
             where_clause,
             search: self.search,
             reason: self.reason,
+            related: self.related,
             group_by: None,
             order_by: self.order_by,
             limit: limit_clause,

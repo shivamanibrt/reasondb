@@ -67,6 +67,18 @@ pub enum StorageError {
     #[error("Table not empty: {0}")]
     TableNotEmpty(String),
 
+    /// Relation already exists between two documents
+    #[error("Relation already exists between {0} and {1}")]
+    RelationAlreadyExists(String, String),
+
+    /// Serialization error
+    #[error("Serialization error: {0}")]
+    Serialization(String),
+
+    /// Deserialization error
+    #[error("Deserialization error: {0}")]
+    Deserialization(String),
+
     /// I/O error
     #[error("I/O error: {0}")]
     IoError(#[from] std::io::Error),

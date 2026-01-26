@@ -5,6 +5,7 @@
 pub mod documents;
 pub mod ingest;
 pub mod query;
+pub mod relations;
 pub mod search;
 pub mod tables;
 
@@ -52,6 +53,14 @@ fn v1_routes<R: ReasoningEngine + Clone + Send + Sync + 'static>(state: Arc<AppS
         .route("/documents/:id", delete(documents::delete_document::<R>))
         .route("/documents/:id/nodes", get(documents::get_document_nodes::<R>))
         .route("/documents/:id/tree", get(documents::get_document_tree::<R>))
+        // Document Relations
+        .route("/documents/:id/relations", get(relations::get_document_relations::<R>))
+        .route("/documents/:id/related", get(relations::get_related_documents::<R>))
+        .route("/documents/:id/related-to/:other_id", get(relations::check_documents_related::<R>))
+        // Relations
+        .route("/relations", post(relations::create_relation::<R>))
+        .route("/relations/:id", get(relations::get_relation::<R>))
+        .route("/relations/:id", delete(relations::delete_relation::<R>))
         // State
         .with_state(state)
 }

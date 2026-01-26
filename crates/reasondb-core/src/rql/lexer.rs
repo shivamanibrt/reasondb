@@ -34,6 +34,17 @@ pub enum Token {
     Offset,
     As,
     Explain,
+    // Relationship keywords
+    Related,
+    To,
+    References,
+    ReferencedBy,
+    FollowsUp,
+    FollowedUpBy,
+    Supersedes,
+    SupersededBy,
+    ParentOf,
+    ChildOf,
     // Aggregate functions
     Count,
     Sum,
@@ -101,6 +112,16 @@ impl Token {
                 | Token::Offset
                 | Token::As
                 | Token::Explain
+                | Token::Related
+                | Token::To
+                | Token::References
+                | Token::ReferencedBy
+                | Token::FollowsUp
+                | Token::FollowedUpBy
+                | Token::Supersedes
+                | Token::SupersededBy
+                | Token::ParentOf
+                | Token::ChildOf
                 | Token::Count
                 | Token::Sum
                 | Token::Avg
@@ -350,6 +371,18 @@ impl Lexer {
             "OFFSET" => Token::Offset,
             "AS" => Token::As,
             "EXPLAIN" => Token::Explain,
+            // Relationship keywords
+            "RELATED" => Token::Related,
+            "TO" => Token::To,
+            "REFERENCES" => Token::References,
+            "REFERENCED_BY" => Token::ReferencedBy,
+            "FOLLOWS_UP" => Token::FollowsUp,
+            "FOLLOWED_UP_BY" => Token::FollowedUpBy,
+            "SUPERSEDES" => Token::Supersedes,
+            "SUPERSEDED_BY" => Token::SupersededBy,
+            "PARENT_OF" => Token::ParentOf,
+            "CHILD_OF" => Token::ChildOf,
+            // Aggregate functions
             "COUNT" => Token::Count,
             "SUM" => Token::Sum,
             "AVG" => Token::Avg,

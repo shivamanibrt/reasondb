@@ -26,6 +26,9 @@ pub struct Query {
     /// Optional REASON clause (LLM semantic search) - can be combined with SEARCH
     pub reason: Option<ReasonClause>,
 
+    /// Optional RELATED clause (filter by document relationships)
+    pub related: Option<RelatedClause>,
+
     /// Optional GROUP BY clause
     pub group_by: Option<GroupByClause>,
 
@@ -363,6 +366,58 @@ pub struct ReasonClause {
     pub query: String,
     /// Minimum confidence threshold (0.0 - 1.0)
     pub min_confidence: Option<f32>,
+}
+
+// ==================== RELATED ====================
+
+/// RELATED clause - filter by document relationships.
+///
+/// # Examples
+///
+/// ```sql
+/// -- Get all documents related to a specific document
+/// SELECT * FROM contracts RELATED TO 'doc_123'
+///
+/// -- Get documents with a specific relationship type
+/// SELECT * FROM contracts RELATED TO 'doc_123' AS references
+///
+/// -- Get documents referenced by a document
+/// SELECT * FROM contracts REFERENCES 'doc_123'
+///
+/// -- Get documents that supersede a document
+/// SELECT * FROM contracts SUPERSEDES 'doc_123'
+/// ```
+#[derive(Debug, Clone, PartialEq)]
+pub struct RelatedClause {
+    /// The document ID to find relationships for
+    pub document_id: String,
+    /// Optional filter by relationship type
+    pub relation_type: Option<RelationFilter>,
+}
+
+/// Filter for relationship types in RELATED clause.
+#[derive(Debug, Clone, PartialEq)]
+pub enum RelationFilter {
+    /// Any relationship type
+    Any,
+    /// Only REFERENCES relationships
+    References,
+    /// Only REFERENCED_BY relationships
+    ReferencedBy,
+    /// Only FOLLOWS_UP relationships
+    FollowsUp,
+    /// Only FOLLOWED_UP_BY relationships
+    FollowedUpBy,
+    /// Only SUPERSEDES relationships
+    Supersedes,
+    /// Only SUPERSEDED_BY relationships
+    SupersededBy,
+    /// Only PARENT_OF relationships
+    ParentOf,
+    /// Only CHILD_OF relationships
+    ChildOf,
+    /// Custom relationship type
+    Custom(String),
 }
 
 // ==================== ORDER BY ====================

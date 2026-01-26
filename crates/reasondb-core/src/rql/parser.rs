@@ -28,6 +28,7 @@ impl Parser {
         let where_clause = self.parse_where()?;
         let search = self.parse_search_clause()?;
         let reason = self.parse_reason_clause()?;
+        let related = self.parse_related_clause()?;
         let group_by = self.parse_group_by()?;
         let order_by = self.parse_order_by()?;
         let limit = self.parse_limit()?;
@@ -46,6 +47,7 @@ impl Parser {
             where_clause,
             search,
             reason,
+            related,
             group_by,
             order_by,
             limit,
@@ -396,6 +398,102 @@ impl Parser {
             }));
         }
         Ok(None)
+    }
+
+    // ==================== RELATED ====================
+
+    fn parse_related_clause(&mut self) -> RqlResult<Option<RelatedClause>> {
+        // Check for shorthand syntax: REFERENCES 'doc_id'
+        if let Some(relation_type) = self.check_relation_keyword() {
+            self.advance();
+            let document_id = self.parse_string()?;
+            return Ok(Some(RelatedClause {
+                document_id,
+                relation_type: Some(relation_type),
+            }));
+        }
+
+        // Check for RELATED TO syntax
+        if !self.check(&Token::Related) {
+            return Ok(None);
+        }
+        self.advance();
+        self.expect(Token::To)?;
+
+        let document_id = self.parse_string()?;
+
+        // Optional AS <relation_type>
+        let relation_type = if self.check(&Token::As) {
+            self.advance();
+            Some(self.parse_relation_type()?)
+        } else {
+            None
+        };
+
+        Ok(Some(RelatedClause {
+            document_id,
+            relation_type,
+        }))
+    }
+
+    fn check_relation_keyword(&self) -> Option<RelationFilter> {
+        match self.current() {
+            Token::References => Some(RelationFilter::References),
+            Token::ReferencedBy => Some(RelationFilter::ReferencedBy),
+            Token::FollowsUp => Some(RelationFilter::FollowsUp),
+            Token::FollowedUpBy => Some(RelationFilter::FollowedUpBy),
+            Token::Supersedes => Some(RelationFilter::Supersedes),
+            Token::SupersededBy => Some(RelationFilter::SupersededBy),
+            Token::ParentOf => Some(RelationFilter::ParentOf),
+            Token::ChildOf => Some(RelationFilter::ChildOf),
+            _ => None,
+        }
+    }
+
+    fn parse_relation_type(&mut self) -> RqlResult<RelationFilter> {
+        match self.current() {
+            Token::References => {
+                self.advance();
+                Ok(RelationFilter::References)
+            }
+            Token::ReferencedBy => {
+                self.advance();
+                Ok(RelationFilter::ReferencedBy)
+            }
+            Token::FollowsUp => {
+                self.advance();
+                Ok(RelationFilter::FollowsUp)
+            }
+            Token::FollowedUpBy => {
+                self.advance();
+                Ok(RelationFilter::FollowedUpBy)
+            }
+            Token::Supersedes => {
+                self.advance();
+                Ok(RelationFilter::Supersedes)
+            }
+            Token::SupersededBy => {
+                self.advance();
+                Ok(RelationFilter::SupersededBy)
+            }
+            Token::ParentOf => {
+                self.advance();
+                Ok(RelationFilter::ParentOf)
+            }
+            Token::ChildOf => {
+                self.advance();
+                Ok(RelationFilter::ChildOf)
+            }
+            Token::Identifier(name) => {
+                let name = name.clone();
+                self.advance();
+                Ok(RelationFilter::Custom(name))
+            }
+            _ => Err(ParserError::new("Expected relation type")
+                .expected("references, referenced_by, supersedes, etc.")
+                .found(format!("{:?}", self.current()))
+                .into()),
+        }
     }
 
     // ==================== GROUP BY ====================

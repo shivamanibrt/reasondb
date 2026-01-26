@@ -56,6 +56,9 @@ pub use cache::{CachedDocSummary, CachedMatch, CachedQueryResult, QueryCache, Qu
 pub use engine::{SearchConfig, SearchEngine, SearchResult};
 pub use error::{ReasonError, Result};
 pub use llm::{LLMProvider, MockReasoner, Reasoner, ReasoningEngine};
-pub use model::{Document, DocumentId, NodeId, NodeMetadata, PageNode, SearchFilter, Table, TableId};
+pub use model::{
+    Document, DocumentId, DocumentRelation, NodeId, NodeMetadata, PageNode, RelationBuilder,
+    RelationType, SearchFilter, Table, TableId,
+};
 pub use store::{NodeStore, StoreStats};
 pub use text_index::{TextIndex, TextSearchResult};

@@ -2,7 +2,7 @@
 //!
 //! This module provides persistent storage using redb, a fast embedded database.
 //! It handles serialization with bincode and provides CRUD operations for
-//! tables, documents, and nodes. Includes secondary indexes for fast filtering.
+//! tables, documents, nodes, and relationships. Includes secondary indexes for fast filtering.
 //!
 //! # Module Structure
 //!
@@ -11,11 +11,13 @@
 //! - `nodes` - Node CRUD operations
 //! - `indexes` - Secondary index management
 //! - `queries` - Search and filter operations
+//! - `relations` - Document relationship operations
 
 mod documents;
 mod indexes;
 mod nodes;
 mod queries;
+mod relations;
 mod tables;
 
 #[cfg(test)]
@@ -144,6 +146,20 @@ impl NodeStore {
                 .map_err(StorageError::from)?;
             let _ = write_txn
                 .open_table(IDX_TABLE_SLUG)
+                .map_err(StorageError::from)?;
+
+            // Relation tables
+            let _ = write_txn
+                .open_table(relations::RELATIONS)
+                .map_err(StorageError::from)?;
+            let _ = write_txn
+                .open_multimap_table(relations::IDX_FROM_DOC)
+                .map_err(StorageError::from)?;
+            let _ = write_txn
+                .open_multimap_table(relations::IDX_TO_DOC)
+                .map_err(StorageError::from)?;
+            let _ = write_txn
+                .open_table(relations::IDX_DOC_PAIR)
                 .map_err(StorageError::from)?;
         }
         write_txn.commit().map_err(StorageError::from)?;
