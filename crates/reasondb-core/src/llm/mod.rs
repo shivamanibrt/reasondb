@@ -71,6 +71,37 @@ pub struct VerificationResult {
     pub extracted_answer: Option<String>,
 }
 
+/// A document summary for quick LLM scanning/ranking
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct DocumentSummary {
+    /// Document ID
+    pub id: String,
+    /// Document title
+    pub title: String,
+    /// Combined summary of document content (from root node)
+    pub summary: String,
+    /// Tags for context
+    pub tags: Vec<String>,
+}
+
+/// Result of ranking a document's relevance to a query
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct DocumentRanking {
+    /// Document ID
+    pub document_id: String,
+    /// Relevance score (0.0 - 1.0)
+    pub relevance: f32,
+    /// Brief explanation of why this document is relevant
+    pub reasoning: String,
+}
+
+/// Wrapper for multiple document rankings
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct DocumentRankings {
+    /// Ranked list of documents (highest relevance first)
+    pub rankings: Vec<DocumentRanking>,
+}
+
 /// Context for summarization during ingestion
 #[derive(Debug, Clone, Default)]
 pub struct SummarizationContext {
@@ -165,6 +196,39 @@ pub trait ReasoningEngine: Send + Sync {
         content: &str,
         context: &SummarizationContext,
     ) -> Result<String>;
+
+    /// Rank documents by relevance to a query based on their summaries.
+    ///
+    /// This is used for "agentic search" - quickly scanning many document
+    /// summaries to find the most relevant ones before deep reasoning.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - The user's search query
+    /// * `documents` - List of document summaries to rank
+    /// * `top_k` - Maximum number of documents to return
+    ///
+    /// # Returns
+    ///
+    /// Ranked list of documents with relevance scores.
+    async fn rank_documents(
+        &self,
+        query: &str,
+        documents: &[DocumentSummary],
+        top_k: usize,
+    ) -> Result<Vec<DocumentRanking>> {
+        // Default implementation: return all documents with equal relevance
+        // Providers can override this with actual LLM-based ranking
+        Ok(documents
+            .iter()
+            .take(top_k)
+            .map(|doc| DocumentRanking {
+                document_id: doc.id.clone(),
+                relevance: 0.5,
+                reasoning: "Default ranking".to_string(),
+            })
+            .collect())
+    }
 
     /// Get the name of this reasoning engine (for logging/debugging)
     fn name(&self) -> &str;

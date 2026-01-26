@@ -14,8 +14,9 @@ use serde::Serialize;
 use tracing::debug;
 
 use super::{
-    NodeSummary, ReasoningConfig, ReasoningEngine, SummarizationContext, TraversalDecision,
-    TraversalDecisions, VerificationResult,
+    DocumentRanking, DocumentRankings, DocumentSummary, NodeSummary, ReasoningConfig,
+    ReasoningEngine, SummarizationContext, TraversalDecision, TraversalDecisions,
+    VerificationResult,
 };
 use crate::error::{ReasonError, Result};
 
@@ -369,6 +370,62 @@ Provide only the summary, no additional commentary."#,
         debug!("Summarizing content ({} chars)", content.len());
 
         self.complete(&prompt).await
+    }
+
+    async fn rank_documents(
+        &self,
+        query: &str,
+        documents: &[DocumentSummary],
+        top_k: usize,
+    ) -> Result<Vec<DocumentRanking>> {
+        if documents.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // Format documents for the prompt
+        let docs_formatted: String = documents
+            .iter()
+            .enumerate()
+            .map(|(i, doc)| {
+                format!(
+                    "{}. [ID: {}] \"{}\" - {}\n   Tags: {:?}",
+                    i + 1, doc.id, doc.title, doc.summary, doc.tags
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let prompt = format!(
+            r#"You are a document ranking assistant. Rank the following documents by their relevance to the user's query.
+
+Query: "{}"
+
+Documents to rank:
+{}
+
+Return the top {} most relevant documents. For each document, provide:
+- document_id: The ID of the document (from the [ID: ...] field)
+- relevance: A score from 0.0 to 1.0 indicating relevance
+- reasoning: A brief explanation of why this document is relevant
+
+Return as JSON array in the format:
+{{"rankings": [{{"document_id": "...", "relevance": 0.9, "reasoning": "..."}}]}}
+
+Only include documents that are actually relevant to the query (relevance > 0.3).
+Order by relevance, highest first."#,
+            query, docs_formatted, top_k
+        );
+
+        debug!("Ranking {} documents for query: {}", documents.len(), query);
+
+        let result: DocumentRankings = self.extract(&prompt).await?;
+
+        // Sort by relevance (highest first) and take top_k
+        let mut rankings = result.rankings;
+        rankings.sort_by(|a, b| b.relevance.partial_cmp(&a.relevance).unwrap_or(std::cmp::Ordering::Equal));
+        rankings.truncate(top_k);
+
+        Ok(rankings)
     }
 
     fn name(&self) -> &str {

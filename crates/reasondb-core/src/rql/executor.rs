@@ -350,8 +350,12 @@ impl NodeStore {
 
     /// Execute a REASON (semantic search) query using the LLM.
     ///
-    /// Supports hybrid search: if SEARCH clause is present, use BM25 to pre-filter
-    /// documents before applying LLM reasoning.
+    /// Uses an **agentic search** pattern for efficiency:
+    /// 1. BM25 pre-filter (if SEARCH clause) or table filter → get candidates
+    /// 2. LLM scans document summaries → ranks top 10 most relevant
+    /// 3. LLM deep reasoning → only on top 10 documents
+    ///
+    /// This is much more efficient than reasoning on all documents.
     async fn execute_reason_query<R: ReasoningEngine + Send + Sync + 'static>(
         self: &Arc<Self>,
         query: &Query,
@@ -360,25 +364,35 @@ impl NodeStore {
         text_index: Option<&TextIndex>,
         reasoner: Arc<R>,
     ) -> Result<QueryResult> {
+        use crate::llm::DocumentSummary;
+
         let start = std::time::Instant::now();
 
         // Resolve table name to ID
         let table_id = self.resolve_table_id(&query.from.table)?;
 
+        // Target number of documents to reason on (user can override with LIMIT)
+        let target_docs = query.limit.as_ref().map(|l| l.count).unwrap_or(10);
+
         // Build search config
         let config = SearchConfig {
             min_confidence: min_confidence.unwrap_or(0.3),
-            max_results: query.limit.as_ref().map(|l| l.count).unwrap_or(10),
+            max_results: target_docs,
             ..Default::default()
         };
 
-        // Create search engine
-        let engine = SearchEngine::with_config(self.clone(), reasoner, config);
+        // Create search engine for deep reasoning
+        let engine = SearchEngine::with_config(self.clone(), reasoner.clone(), config);
 
-        // Get documents to search - supports hybrid search
-        let documents: Vec<Document> = if let (Some(ref search_clause), Some(index)) = (&query.search, text_index) {
-            // HYBRID SEARCH: Use BM25 to pre-filter, then apply LLM reasoning
-            let search_results = index.search(&search_clause.query, 100, Some(&table_id))?;
+        // ====== PHASE 1: Get candidate documents ======
+        // Use BM25 to get initial candidates - this is REQUIRED for large tables
+        // BM25/Tantivy is designed for millions of documents and returns results in ~1ms
+        const MAX_CANDIDATES: usize = 100;
+        const SAFE_TABLE_SIZE: usize = 1000; // Tables larger than this REQUIRE SEARCH clause
+
+        let candidates: Vec<Document> = if let (Some(ref search_clause), Some(index)) = (&query.search, text_index) {
+            // HYBRID: BM25 pre-filters to relevant docs (FAST - handles millions)
+            let search_results = index.search(&search_clause.query, MAX_CANDIDATES, Some(&table_id))?;
             let mut seen: HashSet<String> = HashSet::new();
             let mut docs = Vec::new();
             for hit in search_results {
@@ -391,19 +405,97 @@ impl NodeStore {
                 }
             }
             docs
+        } else if let Some(index) = text_index {
+            // No SEARCH clause but we have an index - use broad search on reason_query
+            // This extracts keywords from the reason query for BM25 matching
+            let search_results = index.search(reason_query, MAX_CANDIDATES, Some(&table_id))?;
+            let mut seen: HashSet<String> = HashSet::new();
+            let mut docs = Vec::new();
+            for hit in search_results {
+                if seen.contains(&hit.document_id) {
+                    continue;
+                }
+                if let Ok(Some(doc)) = self.get_document(&hit.document_id) {
+                    docs.push(doc);
+                    seen.insert(hit.document_id);
+                }
+            }
+            
+            // If BM25 found nothing, fall back to filter (but with strict limit)
+            if docs.is_empty() {
+                let mut filter = query.to_search_filter();
+                filter.table_id = Some(table_id.clone());
+                filter.limit = Some(MAX_CANDIDATES.min(SAFE_TABLE_SIZE));
+                self.find_documents(&filter)?
+            } else {
+                docs
+            }
         } else {
-            // Filter-based search only
+            // No text index available - strict limit to prevent OOM
             let mut filter = query.to_search_filter();
             filter.table_id = Some(table_id.clone());
+            filter.limit = Some(MAX_CANDIDATES.min(SAFE_TABLE_SIZE));
             self.find_documents(&filter)?
         };
 
-        // Execute semantic search on each document
+        // ====== PHASE 2: Agentic Summary Scan ======
+        // LLM quickly scans document summaries to rank relevance
+        // Only do this if we have more candidates than target
+        let documents: Vec<Document> = if candidates.len() > target_docs {
+            // Build document summaries for LLM ranking
+            let doc_summaries: Vec<DocumentSummary> = candidates
+                .iter()
+                .filter_map(|doc| {
+                    // Get root node for summary
+                    let root = self.get_node(&doc.id).ok()??;
+                    Some(DocumentSummary {
+                        id: doc.id.clone(),
+                        title: doc.title.clone(),
+                        summary: root.summary.clone(),
+                        tags: doc.tags.clone(),
+                    })
+                })
+                .collect();
+
+            if doc_summaries.is_empty() {
+                // Fallback: use documents directly without summaries
+                candidates.into_iter().take(target_docs).collect()
+            } else {
+                // LLM ranks documents by relevance (single fast call)
+                let rankings = reasoner.rank_documents(reason_query, &doc_summaries, target_docs).await
+                    .unwrap_or_else(|_| {
+                        // Fallback: take first N if ranking fails
+                        doc_summaries.iter().take(target_docs)
+                            .map(|d| crate::llm::DocumentRanking {
+                                document_id: d.id.clone(),
+                                relevance: 0.5,
+                                reasoning: "Fallback".to_string(),
+                            })
+                            .collect()
+                    });
+
+                // Collect ranked documents
+                let ranked_ids: HashSet<_> = rankings.iter().map(|r| r.document_id.as_str()).collect();
+                candidates.into_iter()
+                    .filter(|d| ranked_ids.contains(d.id.as_str()))
+                    .collect()
+            }
+        } else {
+            // Few enough candidates, reason on all
+            candidates
+        };
+
+        // ====== PHASE 3: Deep LLM Reasoning ======
+        // Now reason deeply on the top-ranked documents
+        // Note: This is sequential to avoid overwhelming LLM rate limits
         let mut all_matches: Vec<DocumentMatch> = Vec::new();
-        let mut total_llm_calls = 0;
+        let mut total_llm_calls = 1; // Count the ranking call
+        let mut docs_processed = 0;
+        let target_results = query.limit.as_ref().map(|l| l.count).unwrap_or(10);
 
         for doc in &documents {
             let search_result = engine.search_document(reason_query, &doc.id).await;
+            docs_processed += 1;
 
             if let Ok(response) = search_result {
                 total_llm_calls += response.stats.llm_calls;
@@ -427,6 +519,15 @@ impl NodeStore {
                     });
                 }
             }
+
+            // Early termination: stop if we have enough high-confidence results
+            // This saves LLM calls when good matches are found early
+            let high_confidence_count = all_matches.iter()
+                .filter(|m| m.confidence.unwrap_or(0.0) >= min_confidence.unwrap_or(0.3))
+                .count();
+            if high_confidence_count >= target_results * 2 {
+                break;
+            }
         }
 
         // Sort by confidence (highest first)
@@ -448,10 +549,14 @@ impl NodeStore {
 
         // Build stats
         let stats = QueryStats {
-            index_used: Some("llm_semantic".to_string()),
-            rows_scanned: documents.len(),
+            index_used: if query.search.is_some() {
+                Some("hybrid_bm25_llm".to_string())
+            } else {
+                Some("llm_semantic".to_string())
+            },
+            rows_scanned: docs_processed, // Actual docs processed (may be less due to early termination)
             rows_returned: paginated.len(),
-            search_executed: false,
+            search_executed: query.search.is_some(),
             reason_executed: true,
             llm_calls: total_llm_calls,
         };

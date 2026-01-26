@@ -42,6 +42,7 @@
 //! # }
 //! ```
 
+pub mod cache;
 pub mod engine;
 pub mod error;
 pub mod llm;
@@ -51,6 +52,7 @@ pub mod store;
 pub mod text_index;
 
 // Re-export main types
+pub use cache::{CachedDocSummary, SummaryCache};
 pub use engine::{SearchConfig, SearchEngine, SearchResult};
 pub use error::{ReasonError, Result};
 pub use llm::{LLMProvider, MockReasoner, Reasoner, ReasoningEngine};
