@@ -1,0 +1,104 @@
+//! Query result types and statistics
+//!
+//! This module contains all the data structures returned from query execution.
+
+use crate::model::{Document, NodeId};
+
+/// Result of executing a query.
+#[derive(Debug, Clone)]
+pub struct QueryResult {
+    /// Matched documents (for regular SELECT queries)
+    pub documents: Vec<DocumentMatch>,
+    /// Total count (before pagination)
+    pub total_count: usize,
+    /// Execution time in milliseconds
+    pub execution_time_ms: u64,
+    /// Query execution statistics
+    pub stats: QueryStats,
+    /// Aggregate results (for COUNT/SUM/AVG/etc. queries)
+    pub aggregates: Option<Vec<AggregateResult>>,
+    /// Query plan (for EXPLAIN queries)
+    pub explain: Option<QueryPlan>,
+}
+
+/// A document match with relevance info.
+#[derive(Debug, Clone)]
+pub struct DocumentMatch {
+    /// The matched document
+    pub document: Document,
+    /// Relevance score (for search queries)
+    pub score: Option<f32>,
+    /// Nodes that matched the query
+    pub matched_nodes: Vec<NodeId>,
+    /// Highlighted text snippets
+    pub highlights: Vec<String>,
+    /// LLM-extracted answer (for REASON queries)
+    pub answer: Option<String>,
+    /// Confidence score from LLM (for REASON queries)
+    pub confidence: Option<f32>,
+}
+
+/// Query execution statistics for analysis and optimization.
+#[derive(Debug, Clone, Default)]
+pub struct QueryStats {
+    /// Index used for initial filtering
+    pub index_used: Option<String>,
+    /// Total rows scanned
+    pub rows_scanned: usize,
+    /// Rows returned after filtering
+    pub rows_returned: usize,
+    /// Whether SEARCH clause was executed
+    pub search_executed: bool,
+    /// Whether REASON clause was executed
+    pub reason_executed: bool,
+    /// Number of LLM calls made (for REASON)
+    pub llm_calls: usize,
+}
+
+// ==================== Aggregate Types ====================
+
+/// Result of an aggregate function
+#[derive(Debug, Clone)]
+pub struct AggregateResult {
+    /// Alias or function name
+    pub name: String,
+    /// Computed value
+    pub value: AggregateValue,
+    /// Group key (for GROUP BY queries)
+    pub group_key: Option<Vec<(String, serde_json::Value)>>,
+}
+
+/// Value types for aggregate results
+#[derive(Debug, Clone)]
+pub enum AggregateValue {
+    /// Integer count
+    Count(usize),
+    /// Floating point sum/avg/min/max
+    Float(f64),
+    /// Null (when no rows match)
+    Null,
+}
+
+// ==================== Query Plan Types ====================
+
+/// Query execution plan (for EXPLAIN)
+#[derive(Debug, Clone)]
+pub struct QueryPlan {
+    /// Steps in the execution plan
+    pub steps: Vec<PlanStep>,
+    /// Estimated row count
+    pub estimated_rows: usize,
+    /// Indexes that would be used
+    pub indexes_used: Vec<String>,
+}
+
+/// A single step in the query plan
+#[derive(Debug, Clone)]
+pub struct PlanStep {
+    /// Step type (e.g., "TableScan", "IndexScan", "Filter", "Aggregate")
+    pub step_type: String,
+    /// Description of what this step does
+    pub description: String,
+    /// Estimated cost (0-100)
+    pub estimated_cost: u32,
+}
