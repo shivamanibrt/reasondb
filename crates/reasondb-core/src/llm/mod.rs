@@ -1,10 +1,10 @@
 //! LLM Interface for ReasonDB
 //!
 //! This module defines the `ReasoningEngine` trait that abstracts LLM interactions.
-//! Supports multiple providers via the `rig` framework: OpenAI, Anthropic, Gemini, etc.
+//! Supports multiple providers: OpenAI, Anthropic, Gemini, etc.
 
 pub mod mock;
-pub mod rig_provider;
+pub mod provider;
 
 use async_trait::async_trait;
 use schemars::JsonSchema;
@@ -224,4 +224,4 @@ mod tests {
 
 // Re-export for convenience
 pub use mock::MockReasoner;
-pub use rig_provider::{LLMProvider, RigReasoner};
+pub use provider::{LLMProvider, Reasoner};

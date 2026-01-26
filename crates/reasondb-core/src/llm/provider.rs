@@ -1,4 +1,4 @@
-//! Multi-provider LLM implementation using the `rig` framework
+//! Multi-provider LLM implementation
 //!
 //! This module provides a unified interface to multiple LLM providers:
 //! - OpenAI (GPT-4o, GPT-4o-mini, etc.)
@@ -90,31 +90,31 @@ impl LLMProvider {
     }
 }
 
-/// Multi-provider reasoning engine using the `rig` framework.
+/// Multi-provider reasoning engine.
 ///
 /// Supports structured output extraction via `schemars::JsonSchema`.
 ///
 /// # Example
 ///
 /// ```rust,ignore
-/// use reasondb_core::llm::{RigReasoner, LLMProvider};
+/// use reasondb_core::llm::{Reasoner, LLMProvider};
 ///
 /// // Using OpenAI
-/// let reasoner = RigReasoner::new(LLMProvider::openai_mini("sk-..."));
+/// let reasoner = Reasoner::new(LLMProvider::openai_mini("sk-..."));
 ///
 /// // Using Claude
-/// let reasoner = RigReasoner::new(LLMProvider::claude_sonnet("sk-ant-..."));
+/// let reasoner = Reasoner::new(LLMProvider::claude_sonnet("sk-ant-..."));
 ///
 /// // Using Gemini
-/// let reasoner = RigReasoner::new(LLMProvider::gemini("your-api-key"));
+/// let reasoner = Reasoner::new(LLMProvider::gemini("your-api-key"));
 /// ```
-pub struct RigReasoner {
+pub struct Reasoner {
     provider: LLMProvider,
     config: ReasoningConfig,
 }
 
-impl RigReasoner {
-    /// Create a new RigReasoner with the specified provider
+impl Reasoner {
+    /// Create a new Reasoner with the specified provider
     pub fn new(provider: LLMProvider) -> Self {
         Self {
             provider,
@@ -227,7 +227,7 @@ impl RigReasoner {
 }
 
 #[async_trait]
-impl ReasoningEngine for RigReasoner {
+impl ReasoningEngine for Reasoner {
     async fn decide_next_step(
         &self,
         query: &str,
@@ -358,7 +358,7 @@ mod tests {
 
     #[test]
     fn test_format_candidates() {
-        let reasoner = RigReasoner::new(LLMProvider::openai_mini("test"));
+        let reasoner = Reasoner::new(LLMProvider::openai_mini("test"));
 
         let candidates = vec![
             NodeSummary {
@@ -393,7 +393,7 @@ mod tests {
         };
 
         let reasoner =
-            RigReasoner::new(LLMProvider::openai_mini("test")).with_config(config.clone());
+            Reasoner::new(LLMProvider::openai_mini("test")).with_config(config.clone());
 
         assert_eq!(reasoner.config.beam_width, 5);
         assert_eq!(reasoner.config.min_confidence, 0.5);
@@ -401,10 +401,10 @@ mod tests {
 
     #[test]
     fn test_reasoner_name() {
-        let openai = RigReasoner::new(LLMProvider::openai_mini("test"));
+        let openai = Reasoner::new(LLMProvider::openai_mini("test"));
         assert_eq!(openai.name(), "gpt-4o-mini");
 
-        let claude = RigReasoner::new(LLMProvider::claude_sonnet("test"));
+        let claude = Reasoner::new(LLMProvider::claude_sonnet("test"));
         assert!(claude.name().contains("claude"));
     }
 }
