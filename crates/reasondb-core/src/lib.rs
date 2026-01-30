@@ -44,6 +44,7 @@
 //! ```
 
 pub mod auth;
+pub mod backup;
 pub mod cache;
 pub mod cluster;
 pub mod engine;
@@ -72,3 +73,8 @@ pub use cluster::{
 pub use ratelimit::{RateLimitConfig, RateLimitResult, RateLimitStore, RateLimitTier, RateLimiter};
 pub use store::{NodeStore, StoreStats};
 pub use text_index::{TextIndex, TextSearchResult};
+pub use backup::{
+    BackupInfo, BackupManager, BackupOptions, BackupType, ExportFormat, ExportOptions,
+    ExportScope, Exporter, ImportOptions, ImportResult, Importer, RestoreOptions, Snapshot,
+    SnapshotMetadata,
+};

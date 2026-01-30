@@ -171,6 +171,20 @@ impl NodeStore {
         Ok(docs)
     }
 
+    /// List all documents in the database.
+    /// 
+    /// This is an alias for `list_documents` for backup/export compatibility.
+    pub fn list_all_documents(&self) -> Result<Vec<Document>> {
+        self.list_documents()
+    }
+
+    /// Get all documents in a specific table.
+    /// 
+    /// This is an alias for `get_documents_in_table` for backup/export compatibility.
+    pub fn get_table_documents(&self, table_id: &str) -> Result<Vec<Document>> {
+        self.get_documents_in_table(table_id)
+    }
+
     /// Move a document to a different table.
     pub fn move_document_to_table(&self, doc_id: &str, new_table_id: &str) -> Result<()> {
         // Verify new table exists

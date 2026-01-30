@@ -124,6 +124,9 @@ enum Commands {
     #[command(subcommand)]
     Cluster(commands::cluster::ClusterCommands),
 
+    /// Backup and restore database
+    Backup(commands::backup::BackupArgs),
+
     /// Generate shell completions
     Completions {
         /// Shell to generate completions for
@@ -262,6 +265,10 @@ async fn main() -> Result<()> {
         Commands::Cluster(cmd) => {
             let output = output::Output::new(cli.format);
             commands::cluster::execute(cmd, output).await
+        }
+        Commands::Backup(args) => {
+            let output = output::Output::new(cli.format);
+            args.execute(&output)
         }
         Commands::Completions { shell } => {
             commands::completions::run(shell);

@@ -3,6 +3,7 @@
 //! All routes are versioned under `/v1/`.
 
 pub mod auth;
+pub mod backup;
 pub mod cluster;
 pub mod documents;
 pub mod ingest;
@@ -71,6 +72,8 @@ fn v1_routes<R: ReasoningEngine + Clone + Send + Sync + 'static>(state: Arc<AppS
         .route("/auth/keys/:id/rotate", post(auth::rotate_key::<R>))
         // Cluster
         .nest("/cluster", cluster::cluster_routes::<R>())
+        // Backup & Recovery
+        .nest("", backup::routes::<R>())
         // State
         .with_state(state)
 }

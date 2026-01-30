@@ -31,7 +31,8 @@
               "guides/authentication",
               "guides/rate-limiting",
               "guides/clustering",
-              "guides/monitoring"
+              "guides/monitoring",
+              "guides/backup"
             ]
           },
           {

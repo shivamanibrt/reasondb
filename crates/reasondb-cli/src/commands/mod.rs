@@ -1,6 +1,7 @@
 //! CLI command implementations
 
 pub mod auth;
+pub mod backup;
 pub mod cluster;
 pub mod completions;
 pub mod config;

@@ -118,6 +118,7 @@ impl From<reasondb_core::error::ReasonError> for ApiError {
             ReasonError::Auth(msg) => ApiError::Unauthorized(msg),
             ReasonError::PermissionDenied(msg) => ApiError::Forbidden(msg),
             ReasonError::Internal(msg) => ApiError::Internal(msg),
+            ReasonError::Backup(msg) => ApiError::Internal(format!("Backup error: {}", msg)),
         }
     }
 }

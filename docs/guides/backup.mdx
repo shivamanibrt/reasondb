@@ -1,0 +1,386 @@
+---
+title: Backup & Recovery
+description: Protect your data with comprehensive backup and restore capabilities
+---
+
+# Backup & Recovery
+
+ReasonDB provides comprehensive backup and recovery capabilities to protect your data. This guide covers full and incremental backups, point-in-time recovery, and data export/import.
+
+## Overview
+
+The backup system supports:
+
+- **Full Backups** - Complete database snapshots with compression
+- **Incremental Backups** - Only changes since the last backup
+- **Point-in-Time Recovery** - Restore to any backup point
+- **Export/Import** - JSON, JSONL, and CSV formats
+- **Integrity Verification** - MD5 checksums for all backups
+
+## CLI Commands
+
+### Creating Backups
+
+Create a full backup:
+
+```bash
+# Create a full backup
+reasondb backup create --database data/reasondb.redb --backup-dir backups
+
+# With description
+reasondb backup create -d data/reasondb.redb -b backups -D "Before migration"
+
+# Incremental backup
+reasondb backup create -d data/reasondb.redb -b backups -t incremental
+```
+
+### Listing Backups
+
+```bash
+# List all backups
+reasondb backup list -b backups
+
+# JSON output
+reasondb backup list -b backups --format json
+```
+
+Output:
+
+```
+Backups:
+
+  snap_a1b2c3d4e5f6 [FULL] 2026-01-30 10:30:00 - 5 tables, 100 docs (2.5 MB)
+    Before migration
+  snap_inc_g7h8i9j0 [INCR] 2026-01-30 14:00:00 - 5 tables, 105 docs (512 KB)
+```
+
+### Restoring Backups
+
+```bash
+# Restore to a new database
+reasondb backup restore snap_a1b2c3d4e5f6 --target restored.redb
+
+# Overwrite existing database
+reasondb backup restore snap_a1b2c3d4e5f6 --target data/reasondb.redb --force
+```
+
+### Verifying Backups
+
+```bash
+# Verify backup integrity
+reasondb backup verify snap_a1b2c3d4e5f6
+
+# Output: ✓ Backup snap_a1b2c3d4e5f6 is valid.
+```
+
+### Deleting Backups
+
+```bash
+# Delete with confirmation
+reasondb backup delete snap_a1b2c3d4e5f6
+
+# Skip confirmation
+reasondb backup delete snap_a1b2c3d4e5f6 --yes
+```
+
+### Pruning Old Backups
+
+```bash
+# Keep last 5 full and 10 incremental backups
+reasondb backup prune --keep-full 5 --keep-incremental 10
+
+# Output: ✓ Pruned 3 backup(s)
+```
+
+## Export & Import
+
+### Exporting Data
+
+Export your data in various formats:
+
+```bash
+# Export everything to JSON
+reasondb backup export data_export.json --database data/reasondb.redb
+
+# Export specific table to CSV
+reasondb backup export contracts.csv -d data/reasondb.redb --format csv --table legal
+
+# Export to JSON Lines (streaming format)
+reasondb backup export documents.jsonl -d data/reasondb.redb --format jsonl
+
+# Include nodes in export
+reasondb backup export full_export.json -d data/reasondb.redb --include-nodes
+```
+
+### Importing Data
+
+```bash
+# Import from JSON
+reasondb backup import data_export.json --database data/reasondb.redb
+
+# Import CSV into specific table
+reasondb backup import contracts.csv -d data/reasondb.redb --format csv --table legal
+
+# Import JSONL
+reasondb backup import documents.jsonl -d data/reasondb.redb --format jsonl --table docs
+
+# Update existing records instead of skipping
+reasondb backup import data.json -d data/reasondb.redb --update
+```
+
+## API Endpoints
+
+### Create Backup
+
+```bash
+curl -X POST "http://localhost:4444/v1/backup?backup_dir=backups" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer rdb_..." \
+  -d '{
+    "backup_type": "full",
+    "description": "Daily backup",
+    "verify": true
+  }'
+```
+
+Response:
+
+```json
+{
+  "id": "snap_a1b2c3d4e5f6",
+  "backup_type": "Full",
+  "created_at": "2026-01-30T10:30:00Z",
+  "table_count": 5,
+  "document_count": 100,
+  "node_count": 500,
+  "size_bytes": 2621440,
+  "description": "Daily backup"
+}
+```
+
+### List Backups
+
+```bash
+curl "http://localhost:4444/v1/backup?backup_dir=backups" \
+  -H "Authorization: Bearer rdb_..."
+```
+
+### Get Backup Details
+
+```bash
+curl "http://localhost:4444/v1/backup/snap_a1b2c3d4e5f6" \
+  -H "Authorization: Bearer rdb_..."
+```
+
+### Verify Backup
+
+```bash
+curl -X POST "http://localhost:4444/v1/backup/snap_a1b2c3d4e5f6/verify" \
+  -H "Authorization: Bearer rdb_..."
+```
+
+### Restore Backup
+
+```bash
+curl -X POST "http://localhost:4444/v1/backup/snap_a1b2c3d4e5f6/restore" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer rdb_..." \
+  -d '{
+    "target_path": "restored.redb",
+    "overwrite": false
+  }'
+```
+
+### Delete Backup
+
+```bash
+curl -X DELETE "http://localhost:4444/v1/backup/snap_a1b2c3d4e5f6" \
+  -H "Authorization: Bearer rdb_..."
+```
+
+### Prune Backups
+
+```bash
+curl -X POST "http://localhost:4444/v1/backup/prune" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer rdb_..." \
+  -d '{
+    "keep_full": 5,
+    "keep_incremental": 10
+  }'
+```
+
+### Export Data
+
+```bash
+curl -X POST "http://localhost:4444/v1/export" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer rdb_..." \
+  -d '{
+    "output_path": "export.json",
+    "format": "json",
+    "include_nodes": true
+  }'
+```
+
+### Import Data
+
+```bash
+curl -X POST "http://localhost:4444/v1/import" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer rdb_..." \
+  -d '{
+    "input_path": "export.json",
+    "format": "json",
+    "update_existing": false
+  }'
+```
+
+## Backup Strategy
+
+### Recommended Schedule
+
+| Backup Type | Frequency | Retention |
+|-------------|-----------|-----------|
+| Full | Weekly | 4 weeks |
+| Incremental | Daily | 7 days |
+| Before Migrations | On-demand | Until verified |
+
+### Automated Backups
+
+Set up automated backups with cron:
+
+```bash
+# Daily incremental at 2 AM
+0 2 * * * /usr/local/bin/reasondb backup create -t incremental -D "Daily auto"
+
+# Weekly full on Sunday at 3 AM
+0 3 * * 0 /usr/local/bin/reasondb backup create -t full -D "Weekly auto"
+
+# Prune old backups weekly
+0 4 * * 0 /usr/local/bin/reasondb backup prune --keep-full 4 --keep-incremental 7
+```
+
+### Disaster Recovery Checklist
+
+1. **Regular Testing** - Periodically test restores to a separate location
+2. **Off-site Copies** - Store backups in a different location/cloud
+3. **Verification** - Run `backup verify` after each backup
+4. **Documentation** - Keep backup locations and recovery procedures documented
+5. **Monitoring** - Alert on backup failures
+
+## Export Formats
+
+### JSON (Full Fidelity)
+
+Complete export with all metadata:
+
+```json
+{
+  "metadata": {
+    "version": "0.1.0",
+    "exported_at": "2026-01-30T10:30:00Z",
+    "format": "Json",
+    "table_count": 2,
+    "document_count": 10,
+    "node_count": 50
+  },
+  "tables": [
+    {
+      "id": "tbl_abc123",
+      "name": "Legal Contracts",
+      "slug": "legal-contracts",
+      "description": "Contract documents"
+    }
+  ],
+  "documents": [
+    {
+      "id": "doc_xyz789",
+      "title": "NDA Agreement",
+      "table_id": "tbl_abc123",
+      "tags": ["nda", "legal"],
+      "author": "Legal Team"
+    }
+  ],
+  "nodes": [
+    // ... if include_nodes is true
+  ]
+}
+```
+
+### JSON Lines (Streaming)
+
+One document per line for streaming processing:
+
+```jsonl
+{"id":"doc_001","title":"Document 1","table_id":"tbl_abc","tags":["tag1"]}
+{"id":"doc_002","title":"Document 2","table_id":"tbl_abc","tags":["tag2"]}
+```
+
+### CSV (Documents Only)
+
+Tabular format for spreadsheet compatibility:
+
+```csv
+id,table_id,title,author,tags,source_path,created_at,updated_at
+doc_001,tbl_abc,Document 1,Alice,tag1;tag2,/path/to/file,2026-01-30T10:00:00Z,2026-01-30T10:00:00Z
+```
+
+## Programmatic Usage
+
+### Rust
+
+```rust
+use reasondb_core::{
+    BackupManager, BackupOptions, BackupType,
+    ExportFormat, ExportOptions, Exporter,
+    NodeStore,
+};
+
+fn main() -> anyhow::Result<()> {
+    let store = NodeStore::open("data/reasondb.redb")?;
+    
+    // Create backup manager
+    let manager = BackupManager::new(&store, "backups")?;
+    
+    // Create full backup
+    let backup = manager.create_backup(&store, BackupOptions::full())?;
+    println!("Created backup: {}", backup.id);
+    
+    // List backups
+    for backup in manager.list_backups()? {
+        println!("{}: {} docs", backup.id, backup.document_count);
+    }
+    
+    // Export to JSON
+    Exporter::export(&store, "export.json", ExportOptions::json())?;
+    
+    Ok(())
+}
+```
+
+## Troubleshooting
+
+### Checksum Mismatch
+
+If you see "Checksum mismatch" errors:
+
+1. The backup file may be corrupted
+2. Try downloading/copying the backup again
+3. Check disk health with `fsck`
+
+### Database Lock Errors
+
+If restore fails with lock errors:
+
+1. Stop any running ReasonDB server
+2. Ensure no other process is using the database
+3. Try with `--force` to overwrite
+
+### Import Conflicts
+
+If imports skip many records:
+
+1. Use `--update` flag to update existing records
+2. Check for duplicate IDs in the import file
+3. Verify the target table exists for CSV/JSONL imports

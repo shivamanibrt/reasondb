@@ -50,6 +50,10 @@ pub enum ReasonError {
     /// Generic internal error
     #[error("Internal error: {0}")]
     Internal(String),
+
+    /// Backup/restore error
+    #[error("Backup error: {0}")]
+    Backup(String),
 }
 
 /// Alias for backward compatibility

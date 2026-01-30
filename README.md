@@ -272,6 +272,7 @@ reasondb/
 - [x] **Phase 6B**: Rate limiting ✅
 - [x] **Phase 6C**: Clustering & replication ✅
 - [x] **Phase 7A**: Monitoring & observability (Prometheus, Grafana, OpenTelemetry) ✅
+- [x] **Phase 7B**: Backup & recovery (snapshots, export/import, point-in-time recovery) ✅
 
 ## 🔧 Configuration
 
