@@ -6,6 +6,7 @@ import {
   Table as TableIcon,
   Code,
   TreeStructure,
+  FileCode,
 } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import { WelcomeScreen } from '@/components/common/WelcomeScreen'
@@ -51,38 +52,63 @@ export function MainPanel() {
   return (
     <div className="h-full flex flex-col bg-base">
       {/* Tab bar */}
-      <div className="flex items-center bg-mantle border-b border-border">
-        <div className="flex-1 flex items-center overflow-x-auto">
-          {tabs.map((tab) => (
-            <div
-              key={tab.id}
-              onClick={() => setActiveTabId(tab.id)}
-              className={cn(
-                'group flex items-center gap-2 px-4 py-2 text-sm border-r border-border cursor-pointer',
-                'hover:bg-surface-0 transition-colors min-w-[120px] max-w-[200px]',
-                activeTabId === tab.id
-                  ? 'bg-base text-text'
-                  : 'bg-mantle text-subtext-0'
-              )}
-            >
-              <span className="truncate">{tab.title}</span>
-              <button
-                onClick={(e) => closeTab(tab.id, e)}
+      <div className="flex items-center bg-mantle border-b border-border min-h-[40px]">
+        <div className="flex-1 flex items-center overflow-x-auto scrollbar-none">
+          {tabs.map((tab) => {
+            const isActive = activeTabId === tab.id
+            return (
+              <div
+                key={tab.id}
+                onClick={() => setActiveTabId(tab.id)}
                 className={cn(
-                  'p-0.5 rounded hover:bg-surface-1',
-                  'opacity-0 group-hover:opacity-100 transition-opacity',
-                  'text-overlay-0 hover:text-text'
+                  'group relative flex items-center h-[40px] px-3 text-sm cursor-pointer select-none',
+                  'transition-colors duration-150',
+                  isActive
+                    ? 'bg-base text-text'
+                    : 'text-subtext-0 hover:text-text hover:bg-surface-0/50'
                 )}
               >
-                <X size={12} weight="bold" />
-              </button>
-            </div>
-          ))}
+                {/* Active indicator */}
+                {isActive && (
+                  <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-mauve" />
+                )}
+                
+                {/* Tab content */}
+                <FileCode 
+                  size={14} 
+                  weight={isActive ? 'fill' : 'regular'} 
+                  className={cn('shrink-0 mr-2', isActive ? 'text-mauve' : 'text-overlay-0')} 
+                />
+                <span className="truncate max-w-[120px]">{tab.title}</span>
+                
+                {/* Close button */}
+                <button
+                  onClick={(e) => closeTab(tab.id, e)}
+                  className={cn(
+                    'ml-2 p-1 rounded-sm transition-all',
+                    'hover:bg-surface-1 active:bg-surface-2',
+                    isActive 
+                      ? 'text-overlay-1 hover:text-text' 
+                      : 'text-transparent group-hover:text-overlay-0 hover:!text-text'
+                  )}
+                  title="Close tab"
+                >
+                  <X size={12} weight="bold" />
+                </button>
+              </div>
+            )
+          })}
         </div>
+        
+        {/* New tab button */}
         <button
           onClick={addNewTab}
-          className="p-2 hover:bg-surface-0 text-overlay-0 hover:text-text transition-colors"
-          title="New Tab"
+          className={cn(
+            'flex items-center justify-center w-[40px] h-[40px]',
+            'text-overlay-0 hover:text-text hover:bg-surface-0/50',
+            'transition-colors'
+          )}
+          title="New Query Tab (⌘T)"
         >
           <Plus size={16} weight="bold" />
         </button>

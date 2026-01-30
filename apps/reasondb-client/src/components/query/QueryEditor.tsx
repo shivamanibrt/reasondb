@@ -2,7 +2,7 @@ import { useRef, useEffect, useCallback } from 'react'
 import Editor, { loader } from '@monaco-editor/react'
 import type * as Monaco from 'monaco-editor'
 import { useHotkeys } from 'react-hotkeys-hook'
-import { Play, FloppyDisk, Clock, CircleNotch } from '@phosphor-icons/react'
+import { Play, FloppyDisk, Clock, CircleNotch, Command } from '@phosphor-icons/react'
 import { registerRqlLanguage, RQL_LANGUAGE_ID } from '@/lib/rql-language'
 import { useQueryStore } from '@/stores/queryStore'
 import { useConnectionStore } from '@/stores/connectionStore'
@@ -153,46 +153,57 @@ export function QueryEditor({ onExecute }: QueryEditorProps) {
     <div className="flex flex-col h-full bg-base">
       {/* Toolbar */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-mantle">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Button
             size="sm"
             onClick={handleExecute}
             disabled={isExecuting || !activeConnectionId || !currentQuery.trim()}
-            className="gap-1.5"
+            className="gap-2 pr-3"
+            title="Execute query (⌘+Enter)"
           >
             {isExecuting ? (
-              <CircleNotch size={14} className="animate-spin" />
+              <CircleNotch size={16} className="animate-spin" />
             ) : (
-              <Play size={14} weight="fill" />
+              <Play size={16} weight="fill" />
             )}
             Run
-            <kbd className="ml-1 px-1 py-0.5 text-[10px] bg-surface-0 rounded">⌘↵</kbd>
           </Button>
+          
+          <div className="h-4 w-px bg-border" />
           
           <Button
             size="sm"
-            variant="outline"
+            variant="ghost"
             disabled={!currentQuery.trim()}
-            className="gap-1.5"
+            className="gap-2"
+            title="Save query"
           >
-            <FloppyDisk size={14} />
+            <FloppyDisk size={16} />
             Save
           </Button>
           
           <Button
             size="sm"
             variant="ghost"
-            className="gap-1.5"
+            className="gap-2"
+            title="View query history"
           >
-            <Clock size={14} />
+            <Clock size={16} />
             History
           </Button>
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-subtext-0">
+        <div className="flex items-center gap-3 text-xs">
+          {/* Keyboard shortcut hint */}
+          <div className="hidden sm:flex items-center gap-1 text-overlay-0">
+            <Command size={12} />
+            <span>+ Enter to run</span>
+          </div>
+          
+          {/* Connection status */}
           {activeConnection ? (
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-green" />
+            <span className="flex items-center gap-1.5 text-subtext-0">
+              <span className="w-2 h-2 rounded-full bg-green animate-pulse" />
               {activeConnection.name}
             </span>
           ) : (
