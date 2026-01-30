@@ -10,9 +10,12 @@ import {
   CaretRight,
   Folder,
   FolderOpen,
+  PlugsConnected,
 } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
-import { useConnectionStore } from '@/stores/connectionStore'
+import { useConnectionStore, type Connection } from '@/stores/connectionStore'
+import { ConnectionList } from '@/components/connection/ConnectionList'
+import { ConnectionForm } from '@/components/connection/ConnectionForm'
 
 interface TreeItem {
   id: string
@@ -111,8 +114,30 @@ function TreeNode({
 }
 
 export function Sidebar() {
-  const { activeConnectionId } = useConnectionStore()
+  const { activeConnectionId, setActiveConnection, setConnecting } = useConnectionStore()
   const [searchQuery, setSearchQuery] = useState('')
+  const [showConnectionForm, setShowConnectionForm] = useState(false)
+  const [editingConnection, setEditingConnection] = useState<Connection | undefined>()
+  const [activeSection, setActiveSection] = useState<'connections' | 'tables'>('connections')
+
+  const handleConnect = async (connection: Connection) => {
+    setConnecting(true)
+    // Simulate connection delay
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    setActiveConnection(connection.id)
+    setConnecting(false)
+    setActiveSection('tables')
+  }
+
+  const handleEditConnection = (connection: Connection) => {
+    setEditingConnection(connection)
+    setShowConnectionForm(true)
+  }
+
+  const handleNewConnection = () => {
+    setEditingConnection(undefined)
+    setShowConnectionForm(true)
+  }
 
   return (
     <div className="h-full bg-mantle flex flex-col border-r border-border min-w-[200px]">
@@ -133,41 +158,90 @@ export function Sidebar() {
               'w-full pl-9 pr-3 py-2 text-sm rounded-md',
               'bg-surface-0 border border-border',
               'text-text placeholder-overlay-0',
-              'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
+              'focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent',
               'transition-all'
             )}
           />
         </div>
       </div>
 
-      {/* Tables section */}
-      <div className="flex-1 overflow-auto">
-        <div className="px-3 py-2">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2 text-xs font-semibold text-overlay-1 uppercase tracking-wide">
-              <Database size={14} weight="bold" />
-              Tables
-            </div>
-            <button
-              className="p-1 rounded hover:bg-surface-0 text-overlay-0 hover:text-text transition-colors"
-              title="New Table"
-            >
-              <Plus size={14} weight="bold" />
-            </button>
-          </div>
-
-          {activeConnectionId ? (
-            <div className="space-y-0.5">
-              {mockTables.map((table) => (
-                <TreeNode key={table.id} item={table} />
-              ))}
-            </div>
-          ) : (
-            <div className="text-xs text-overlay-0 text-center py-4">
-              Connect to a database to view tables
-            </div>
+      {/* Section tabs */}
+      <div className="px-3 pb-2 flex gap-1">
+        <button
+          onClick={() => setActiveSection('connections')}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium rounded-md transition-colors',
+            activeSection === 'connections'
+              ? 'bg-surface-0 text-text'
+              : 'text-overlay-1 hover:text-text hover:bg-surface-0/50'
           )}
-        </div>
+        >
+          <PlugsConnected size={14} weight={activeSection === 'connections' ? 'fill' : 'bold'} />
+          Connections
+        </button>
+        <button
+          onClick={() => setActiveSection('tables')}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium rounded-md transition-colors',
+            activeSection === 'tables'
+              ? 'bg-surface-0 text-text'
+              : 'text-overlay-1 hover:text-text hover:bg-surface-0/50'
+          )}
+        >
+          <Database size={14} weight={activeSection === 'tables' ? 'fill' : 'bold'} />
+          Tables
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-auto">
+        {activeSection === 'connections' ? (
+          <div className="px-3 py-2">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs font-semibold text-overlay-1 uppercase tracking-wide">
+                Servers
+              </div>
+              <button
+                onClick={handleNewConnection}
+                className="p-1 rounded hover:bg-surface-0 text-overlay-0 hover:text-text transition-colors"
+                title="New Connection"
+              >
+                <Plus size={14} weight="bold" />
+              </button>
+            </div>
+            <ConnectionList
+              onEdit={handleEditConnection}
+              onConnect={handleConnect}
+            />
+          </div>
+        ) : (
+          <div className="px-3 py-2">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2 text-xs font-semibold text-overlay-1 uppercase tracking-wide">
+                <Database size={14} weight="bold" />
+                Tables
+              </div>
+              <button
+                className="p-1 rounded hover:bg-surface-0 text-overlay-0 hover:text-text transition-colors"
+                title="New Table"
+              >
+                <Plus size={14} weight="bold" />
+              </button>
+            </div>
+
+            {activeConnectionId ? (
+              <div className="space-y-0.5">
+                {mockTables.map((table) => (
+                  <TreeNode key={table.id} item={table} />
+                ))}
+              </div>
+            ) : (
+              <div className="text-xs text-overlay-0 text-center py-4">
+                Connect to a database to view tables
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Quick actions */}
@@ -191,6 +265,13 @@ export function Sidebar() {
           Saved Queries
         </button>
       </div>
+
+      {/* Connection Form Modal */}
+      <ConnectionForm
+        open={showConnectionForm}
+        onOpenChange={setShowConnectionForm}
+        editConnection={editingConnection}
+      />
     </div>
   )
 }
