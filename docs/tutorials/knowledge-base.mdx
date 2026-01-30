@@ -1,0 +1,346 @@
+---
+title: "Tutorial: Knowledge Base Q&A"
+description: Build a smart FAQ system that understands questions and extracts answers
+---
+
+In this tutorial, you'll build an intelligent knowledge base that can answer user questions by understanding intent and extracting precise answers from your documentation.
+
+## What You'll Build
+
+A Q&A system that can:
+- Answer natural language questions about your product
+- Find relevant documentation sections
+- Provide accurate answers with confidence scores
+- Handle variations in how questions are asked
+
+## How It Works
+
+<Mermaid>
+{`flowchart LR
+    subgraph Documentation
+        GS[Getting Started]
+        FT[Features Guide]
+        BL[Billing FAQ]
+        TS[Troubleshooting]
+    end
+
+    subgraph ReasonDB
+        KB[(knowledge_base)]
+        Trees[Doc Trees]
+    end
+
+    subgraph UserQuery
+        Q[User Question]
+        Cat[Category Filter]
+    end
+
+    subgraph Response
+        Ans[Answer]
+        Conf[Confidence Score]
+        Src[Source Doc]
+    end
+
+    GS --> KB
+    FT --> KB
+    BL --> KB
+    TS --> KB
+    KB --> Trees
+    Q --> Cat
+    Cat --> Trees
+    Trees --> Ans
+    Trees --> Conf
+    Trees --> Src`}
+</Mermaid>
+
+1. **Ingest documentation** - Add guides, FAQs, and troubleshooting docs with category tags
+2. **User asks question** - Natural language query like "How do I reset my password?"
+3. **Filter and reason** - Optionally filter by category, then LLM finds the answer
+4. **Return with confidence** - Answer includes confidence score and source document
+
+## Use Case: Product Documentation
+
+We'll build a knowledge base for a fictional project management tool called "TaskFlow."
+
+## Step 1: Set Up the Knowledge Base
+
+<Steps>
+  <Step title="Create the knowledge base table">
+    ```bash
+    curl -X POST http://localhost:4444/v1/tables \
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "knowledge_base",
+        "description": "TaskFlow product documentation and FAQs"
+      }'
+    ```
+  </Step>
+</Steps>
+
+## Step 2: Ingest Documentation
+
+Let's add product documentation. Replace `TABLE_ID` with your table ID:
+
+### Getting Started Guide
+
+```bash
+curl -X POST http://localhost:4444/v1/ingest/text \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Getting Started with TaskFlow",
+    "table_id": "TABLE_ID",
+    "content": "# Getting Started with TaskFlow\n\nWelcome to TaskFlow, the modern project management tool for teams.\n\n## Creating Your Account\n\n### Sign Up\n1. Go to taskflow.com/signup\n2. Enter your email address\n3. Choose a password (minimum 8 characters)\n4. Verify your email\n\n### First Login\nAfter verifying your email, you can log in and complete your profile.\n\n## Creating Your First Project\n\n### New Project\n1. Click the \"+\" button in the sidebar\n2. Select \"New Project\"\n3. Enter a project name and description\n4. Choose a template (optional)\n5. Invite team members\n\n### Project Templates\nWe offer templates for:\n- Software Development (Kanban)\n- Marketing Campaigns\n- Product Launch\n- Event Planning\n\n## Inviting Team Members\n\nTo invite people to your workspace:\n1. Go to Settings > Team\n2. Click \"Invite Members\"\n3. Enter email addresses\n4. Choose their role (Admin, Member, or Guest)\n5. Send invitations\n\n### Roles and Permissions\n- **Admin**: Full access, can manage billing and settings\n- **Member**: Can create and edit projects\n- **Guest**: View-only access to specific projects",
+    "tags": ["getting-started", "onboarding", "basics"],
+    "metadata": {"category": "getting-started", "difficulty": "beginner"}
+  }'
+```
+
+### Features Guide
+
+```bash
+curl -X POST http://localhost:4444/v1/ingest/text \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "TaskFlow Features Guide",
+    "table_id": "TABLE_ID",
+    "content": "# TaskFlow Features\n\n## Task Management\n\n### Creating Tasks\nTasks are the building blocks of your projects. To create a task:\n1. Open a project\n2. Click \"Add Task\" or press \"T\"\n3. Enter the task title\n4. Add description, due date, and assignee\n\n### Task Properties\n- **Title**: Brief description of the work\n- **Description**: Detailed information, supports Markdown\n- **Assignee**: Who is responsible\n- **Due Date**: When it should be completed\n- **Priority**: Low, Medium, High, or Urgent\n- **Labels**: Custom tags for organization\n- **Subtasks**: Break down into smaller pieces\n\n### Task Views\n- **List View**: Traditional to-do list\n- **Board View**: Kanban-style columns\n- **Calendar View**: See tasks by due date\n- **Timeline View**: Gantt chart for projects\n\n## Collaboration\n\n### Comments\nAdd comments to any task to discuss with your team. Use @mentions to notify specific people.\n\n### File Attachments\nAttach files up to 100MB per file. Supported formats include images, PDFs, and documents.\n\n### Real-time Updates\nAll changes sync instantly. See who is viewing or editing in real-time.\n\n## Automation\n\n### Rules\nAutomate repetitive tasks with rules:\n- When a task is marked complete, move to Done column\n- When due date passes, increase priority\n- When assigned, send notification\n\n### Integrations\nConnect TaskFlow with:\n- Slack (notifications)\n- GitHub (link commits to tasks)\n- Google Calendar (sync due dates)\n- Zapier (1000+ apps)",
+    "tags": ["features", "tasks", "collaboration"],
+    "metadata": {"category": "features", "difficulty": "intermediate"}
+  }'
+```
+
+### Billing & Plans
+
+```bash
+curl -X POST http://localhost:4444/v1/ingest/text \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "TaskFlow Pricing and Billing",
+    "table_id": "TABLE_ID",
+    "content": "# Pricing and Billing\n\n## Plans\n\n### Free Plan\n- Up to 5 users\n- 3 projects\n- Basic task management\n- 100MB storage\n- Community support\n\n### Pro Plan - $10/user/month\n- Unlimited users\n- Unlimited projects\n- Advanced features (Timeline, Automation)\n- 10GB storage per user\n- Priority email support\n- Custom fields\n\n### Enterprise Plan - Contact Sales\n- Everything in Pro\n- SSO/SAML authentication\n- Advanced security controls\n- Dedicated success manager\n- 99.9% uptime SLA\n- Custom integrations\n\n## Billing FAQ\n\n### How do I upgrade my plan?\n1. Go to Settings > Billing\n2. Click \"Change Plan\"\n3. Select your new plan\n4. Enter payment information\n5. Confirm upgrade\n\n### Can I get a refund?\nWe offer a 30-day money-back guarantee for annual plans. Monthly plans can be cancelled anytime but are not refunded.\n\n### How does billing work for team changes?\nWhen you add users, you are billed prorated for the remainder of the billing cycle. When you remove users, credit is applied to your next invoice.\n\n### Do you offer discounts?\n- **Annual billing**: 20% off\n- **Nonprofits**: 50% off\n- **Education**: Free for students and teachers\n- **Startups**: Contact us for special pricing\n\n### What payment methods do you accept?\n- Credit cards (Visa, Mastercard, Amex)\n- PayPal\n- Bank transfer (Enterprise only)\n- Wire transfer (Enterprise only)",
+    "tags": ["billing", "pricing", "plans", "faq"],
+    "metadata": {"category": "billing", "difficulty": "beginner"}
+  }'
+```
+
+### Troubleshooting Guide
+
+```bash
+curl -X POST http://localhost:4444/v1/ingest/text \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "TaskFlow Troubleshooting",
+    "table_id": "TABLE_ID",
+    "content": "# Troubleshooting\n\n## Login Issues\n\n### I forgot my password\n1. Go to taskflow.com/login\n2. Click \"Forgot Password\"\n3. Enter your email\n4. Check your inbox for reset link\n5. Create a new password\n\nIf you do not receive the email, check your spam folder or contact support.\n\n### I am not receiving the verification email\n- Check your spam/junk folder\n- Add noreply@taskflow.com to your contacts\n- Try a different email address\n- Contact support if issues persist\n\n### Two-factor authentication issues\nIf you lost access to your 2FA device:\n1. Use one of your backup codes\n2. If no backup codes, contact support with ID verification\n\n## Performance Issues\n\n### The app is running slowly\nTry these steps:\n1. Clear your browser cache\n2. Disable browser extensions\n3. Try a different browser\n4. Check your internet connection\n5. Try the desktop app instead\n\n### Tasks are not syncing\n- Check your internet connection\n- Refresh the page (Ctrl+R or Cmd+R)\n- Log out and log back in\n- Clear browser storage\n\n## Mobile App Issues\n\n### App crashes on startup\n1. Update to the latest version\n2. Restart your device\n3. Uninstall and reinstall the app\n4. Contact support with your device model and OS version\n\n### Notifications not working\n- Check notification settings in the app\n- Check your device notification settings\n- Ensure Do Not Disturb is off\n- Check battery optimization settings\n\n## Contact Support\n\nIf your issue is not resolved:\n- Email: support@taskflow.com\n- Live chat: Available 9am-6pm EST\n- Help center: help.taskflow.com",
+    "tags": ["troubleshooting", "support", "faq", "help"],
+    "metadata": {"category": "troubleshooting", "difficulty": "beginner"}
+  }'
+```
+
+## Step 3: Simple Q&A
+
+Now let's answer questions using the LLM:
+
+### Basic Questions
+
+```bash
+# How do I create a project?
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM knowledge_base REASON '\''How do I create a new project?'\''"}'
+```
+
+**Response:**
+```json
+{
+  "documents": [{
+    "title": "Getting Started with TaskFlow",
+    "answer": "To create a new project: 1) Click the \"+\" button in the sidebar, 2) Select \"New Project\", 3) Enter a project name and description, 4) Choose a template (optional), 5) Invite team members.",
+    "confidence": 0.95
+  }]
+}
+```
+
+### Pricing Questions
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM knowledge_base REASON '\''How much does TaskFlow cost?'\''"}'
+```
+
+### Troubleshooting Questions
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM knowledge_base REASON '\''I forgot my password, what should I do?'\''"}'
+```
+
+## Step 4: Scoped Queries
+
+Filter to specific documentation areas:
+
+### Only Search Getting Started
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM knowledge_base WHERE tags CONTAINS '\''getting-started'\'' REASON '\''How do I invite team members?'\''"}'
+```
+
+### Only Search Troubleshooting
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM knowledge_base WHERE metadata.category = '\''troubleshooting'\'' REASON '\''Why is the app slow?'\''"}'
+```
+
+### Only Search Billing
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM knowledge_base WHERE tags CONTAINS '\''billing'\'' REASON '\''Do you offer any discounts?'\''"}'
+```
+
+## Step 5: Handle Question Variations
+
+The LLM understands different ways of asking the same question:
+
+```bash
+# Formal
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM knowledge_base REASON '\''What is the process for password recovery?'\''"}'
+
+# Casual
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM knowledge_base REASON '\''forgot my password help'\''"}'
+
+# Specific
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM knowledge_base REASON '\''I cannot log in because I do not remember my password'\''"}'
+```
+
+All three should return similar answers about password reset.
+
+## Step 6: Building a Q&A API
+
+Here's how you might integrate ReasonDB into a chatbot or help widget:
+
+```python
+import requests
+
+def ask_question(question, category=None):
+    """Ask a question to the knowledge base."""
+
+    # Build the query
+    if category:
+        query = f"SELECT * FROM knowledge_base WHERE metadata.category = '{category}' REASON '{question}'"
+    else:
+        query = f"SELECT * FROM knowledge_base REASON '{question}'"
+
+    # Execute query
+    response = requests.post(
+        "http://localhost:4444/v1/query",
+        json={"query": query}
+    )
+
+    result = response.json()
+
+    if result["documents"]:
+        doc = result["documents"][0]
+        return {
+            "answer": doc["answer"],
+            "confidence": doc["confidence"],
+            "source": doc["title"]
+        }
+    else:
+        return {
+            "answer": "I couldn't find an answer to your question.",
+            "confidence": 0,
+            "source": None
+        }
+
+# Usage
+result = ask_question("How do I reset my password?")
+print(f"Answer: {result['answer']}")
+print(f"Confidence: {result['confidence']}")
+print(f"Source: {result['source']}")
+```
+
+## Step 7: Improving Answer Quality
+
+### Combine with Keyword Pre-filtering
+
+For faster responses, use SEARCH to pre-filter, then REASON:
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM knowledge_base SEARCH '\''password reset'\'' REASON '\''How do I reset my password?'\''"}'
+```
+
+### Use Higher Confidence Threshold
+
+Only return high-confidence answers:
+
+```bash
+# In your application code, filter by confidence
+result = ask_question("...")
+if result["confidence"] > 0.8:
+    return result["answer"]
+else:
+    return "I'm not sure. Let me connect you with support."
+```
+
+## Challenges
+
+<AccordionGroup>
+  <Accordion title="Challenge 1: Add an FAQ section">
+    Ingest a dedicated FAQ document and tag it appropriately:
+    ```bash
+    curl -X POST http://localhost:4444/v1/ingest/text \
+      -d '{
+        "title": "Frequently Asked Questions",
+        "table_id": "TABLE_ID",
+        "content": "# FAQ\n\n## General\n\n### What is TaskFlow?\nTaskFlow is a modern project management tool...\n\n### Is there a mobile app?\nYes, TaskFlow is available on iOS and Android...",
+        "tags": ["faq"]
+      }'
+    ```
+  </Accordion>
+
+  <Accordion title="Challenge 2: Build a category suggester">
+    Use RQL to suggest which category a question belongs to:
+    ```bash
+    curl -X POST http://localhost:4444/v1/query \
+      -d '{"query": "SELECT DISTINCT metadata.category FROM knowledge_base SEARCH '\''payment credit card'\''"}'
+    ```
+  </Accordion>
+
+  <Accordion title="Challenge 3: Find related articles">
+    After answering a question, suggest related content:
+    ```bash
+    curl -X POST http://localhost:4444/v1/query \
+      -d '{"query": "SELECT title FROM knowledge_base WHERE tags CONTAINS '\''billing'\'' LIMIT 3"}'
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<Tip>
+**Structure your content well**: Use clear headings (H1, H2, H3) to create a navigable tree. This helps the LLM find specific sections.
+</Tip>
+
+<Note>
+**Tag by topic and difficulty**: Use metadata like `category` and `difficulty` to enable filtered searches for different user types.
+</Note>
+
+<Warning>
+**Monitor confidence scores**: Low confidence answers may indicate gaps in your documentation. Track these to improve your knowledge base.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Research Paper Analysis" icon="flask" href="/tutorials/research-papers">
+    Analyze academic papers with ReasonDB
+  </Card>
+  <Card title="Ingestion Guide" icon="file-arrow-up" href="/guides/ingestion">
+    Learn about different ingestion methods
+  </Card>
+</CardGroup>

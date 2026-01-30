@@ -1,0 +1,357 @@
+---
+title: Authentication
+description: Secure your ReasonDB deployment with API key authentication
+---
+
+ReasonDB provides API key authentication for production deployments. This guide covers how to enable authentication, manage API keys, and secure your API endpoints.
+
+## Overview
+
+When authentication is enabled:
+
+- All API endpoints require a valid API key
+- Keys have configurable permissions (read, write, ingest, query, etc.)
+- Keys can be scoped to specific environments (live/test)
+- Admin keys can manage other API keys
+
+## Enabling Authentication
+
+### Via CLI Flags
+
+```bash
+# Enable auth with a master key
+reasondb serve --auth-enabled --master-key "your-secret-master-key"
+```
+
+### Via Environment Variables
+
+```bash
+REASONDB_AUTH_ENABLED=true \
+REASONDB_MASTER_KEY="your-secret-master-key" \
+reasondb serve
+```
+
+### Via Configuration File
+
+Add to your `~/.config/reasondb/config.toml`:
+
+```toml
+[auth]
+enabled = true
+master_key = "your-secret-master-key"
+```
+
+<Warning>
+The master key has full admin access. Keep it secure and never expose it in client applications.
+</Warning>
+
+## API Key Format
+
+ReasonDB API keys follow a structured format:
+
+```
+rdb_{environment}_{32_random_characters}
+```
+
+| Prefix | Environment | Usage |
+|--------|-------------|-------|
+| `rdb_live_` | Production | Production deployments |
+| `rdb_test_` | Development | Testing and development |
+
+Example:
+```
+rdb_live_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6
+```
+
+## Managing API Keys
+
+### Create a Key
+
+Using the CLI:
+
+```bash
+# With master key in environment
+export REASONDB_MASTER_KEY="your-master-key"
+
+# Create a production key with all permissions
+reasondb auth keys create "my-production-app" --environment live
+
+# Create a read-only key
+reasondb auth keys create "analytics-service" --permissions read,query
+
+# Create a test key for development
+reasondb auth keys create "dev-testing" --environment test
+```
+
+Using the API:
+
+```bash
+curl -X POST http://localhost:4444/v1/auth/keys \
+  -H "Authorization: Bearer $MASTER_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "my-production-app",
+    "environment": "live",
+    "permissions": ["read", "write", "ingest", "query"]
+  }'
+```
+
+Response:
+```json
+{
+  "id": "key_abc123",
+  "name": "my-production-app",
+  "key": "rdb_live_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6",
+  "permissions": ["read", "write", "ingest", "query"],
+  "environment": "live",
+  "created_at": "2026-01-30T10:00:00Z"
+}
+```
+
+<Warning>
+The API key is only shown once when created. Store it securely immediately.
+</Warning>
+
+### List Keys
+
+```bash
+# CLI
+reasondb auth keys list
+
+# API
+curl -H "Authorization: Bearer $MASTER_KEY" \
+  http://localhost:4444/v1/auth/keys
+```
+
+Output:
+```
+API Keys
+────────────────────────────────────────────────────
+
+ID           Name                 Permissions    Created
+───────────  ──────────────────   ────────────   ────────────────
+key_abc123   my-production-app    read,write     2026-01-30
+key_def456   analytics-service    read,query     2026-01-28
+key_ghi789   dev-testing          read,write     2026-01-25
+
+Total: 3 keys
+```
+
+### Get Key Details
+
+```bash
+# CLI
+reasondb auth keys get key_abc123
+
+# API
+curl -H "Authorization: Bearer $MASTER_KEY" \
+  http://localhost:4444/v1/auth/keys/key_abc123
+```
+
+### Revoke a Key
+
+Revoked keys are immediately invalidated:
+
+```bash
+# CLI
+reasondb auth keys revoke key_abc123
+
+# API
+curl -X POST http://localhost:4444/v1/auth/keys/key_abc123/revoke \
+  -H "Authorization: Bearer $MASTER_KEY"
+```
+
+### Rotate a Key
+
+Rotation creates a new key and revokes the old one:
+
+```bash
+# CLI
+reasondb auth keys rotate key_abc123
+
+# API
+curl -X POST http://localhost:4444/v1/auth/keys/key_abc123/rotate \
+  -H "Authorization: Bearer $MASTER_KEY"
+```
+
+Response:
+```json
+{
+  "old_key_id": "key_abc123",
+  "new_key": {
+    "id": "key_xyz999",
+    "key": "rdb_live_newkey12345...",
+    "permissions": ["read", "write", "ingest", "query"]
+  }
+}
+```
+
+## Using API Keys
+
+Include your API key in requests using one of these methods:
+
+### Authorization Header (Recommended)
+
+```bash
+curl -H "Authorization: Bearer rdb_live_xxxxx" \
+  http://localhost:4444/v1/search \
+  -d '{"query": "..."}'
+```
+
+### X-API-Key Header
+
+```bash
+curl -H "X-API-Key: rdb_live_xxxxx" \
+  http://localhost:4444/v1/search \
+  -d '{"query": "..."}'
+```
+
+## Permissions
+
+Each API key can have a combination of these permissions:
+
+| Permission | Description | Endpoints |
+|-----------|-------------|-----------|
+| `read` | Read documents and search results | `GET /documents`, `POST /search` |
+| `write` | Create, update, delete documents | `POST`, `PATCH`, `DELETE /documents` |
+| `ingest` | Ingest new documents | `POST /ingest/*` |
+| `query` | Execute RQL queries | `POST /query` |
+| `relations` | Manage document relationships | `/relations` endpoints |
+| `tables` | Create and manage tables | `/tables` endpoints |
+| `admin` | Manage API keys | `/auth/*` endpoints |
+
+### Permission Examples
+
+```bash
+# Read-only analytics service
+reasondb auth keys create "analytics" --permissions read,query
+
+# Ingestion pipeline
+reasondb auth keys create "ingest-worker" --permissions ingest,write
+
+# Full access except admin
+reasondb auth keys create "app-backend" --permissions read,write,ingest,query,relations,tables
+
+# Admin key for key management
+reasondb auth keys create "admin-service" --permissions admin
+```
+
+## Error Responses
+
+### 401 Unauthorized
+
+Missing or invalid API key:
+
+```json
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Invalid or missing API key"
+  }
+}
+```
+
+### 403 Forbidden
+
+Valid key but insufficient permissions:
+
+```json
+{
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "Permission denied: requires 'write' permission"
+  }
+}
+```
+
+## Security Best Practices
+
+### 1. Use Environment-Specific Keys
+
+Create separate keys for production and development:
+
+```bash
+# Production - restrictive permissions
+reasondb auth keys create "prod-app" --environment live --permissions read,query
+
+# Development - broader access for testing
+reasondb auth keys create "dev-app" --environment test --permissions read,write,ingest,query
+```
+
+### 2. Principle of Least Privilege
+
+Only grant permissions that are actually needed:
+
+```bash
+# Bad: Full access when only search is needed
+reasondb auth keys create "search-service" --permissions read,write,ingest,query,admin
+
+# Good: Only what's needed
+reasondb auth keys create "search-service" --permissions read,query
+```
+
+### 3. Rotate Keys Regularly
+
+Set up periodic key rotation:
+
+```bash
+# Rotate every 90 days
+reasondb auth keys rotate key_abc123
+```
+
+### 4. Use Master Key Only for Key Management
+
+Never use the master key in applications:
+
+```bash
+# Bad: Using master key in app
+curl -H "Authorization: Bearer $MASTER_KEY" ...
+
+# Good: Create a specific key for the app
+reasondb auth keys create "my-app" --permissions read,write
+curl -H "Authorization: Bearer $APP_KEY" ...
+```
+
+### 5. Store Keys Securely
+
+- Use environment variables or secret managers
+- Never commit keys to version control
+- Don't log keys in application code
+
+## Disabling Authentication
+
+For development or internal deployments, you can run without authentication:
+
+```bash
+# Auth is disabled by default
+reasondb serve
+
+# Or explicitly disable
+reasondb serve --auth-enabled=false
+```
+
+<Warning>
+Never disable authentication in production or publicly accessible deployments.
+</Warning>
+
+## API Key Management Endpoints
+
+| Method | Endpoint | Description | Required Permission |
+|--------|----------|-------------|-------------------|
+| `POST` | `/v1/auth/keys` | Create a new API key | `admin` |
+| `GET` | `/v1/auth/keys` | List all API keys | `admin` |
+| `GET` | `/v1/auth/keys/{id}` | Get key details | `admin` |
+| `POST` | `/v1/auth/keys/{id}/revoke` | Revoke a key | `admin` |
+| `DELETE` | `/v1/auth/keys/{id}` | Delete a key | `admin` |
+| `POST` | `/v1/auth/keys/{id}/rotate` | Rotate a key | `admin` |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/guides/configuration">
+    Full configuration options
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/introduction">
+    Complete API documentation
+  </Card>
+</CardGroup>

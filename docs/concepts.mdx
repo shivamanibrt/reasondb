@@ -1,0 +1,192 @@
+---
+title: Core Concepts
+description: Understand the key concepts behind ReasonDB's reasoning-native architecture
+---
+
+ReasonDB uses a fundamentally different approach to document storage and retrieval. Instead of embedding documents into vectors or storing them as flat text, ReasonDB builds **hierarchical trees** that an LLM can navigate intelligently.
+
+## Documents and Trees
+
+When you ingest a document into ReasonDB, it's transformed into a tree structure:
+
+<Mermaid>
+{`graph TD
+    Root[Document Root]
+
+    Root --> A[Chapter 1: Introduction]
+    Root --> B[Chapter 2: Supervised Learning]
+    Root --> C[Chapter 3: Neural Networks]
+
+    B --> B1[Section 2.1: Classification]
+    B --> B2[Section 2.2: Regression]
+
+    C --> C1[Section 3.1: Perceptrons]
+    C --> C2[Section 3.2: Backpropagation]`}
+</Mermaid>
+
+Each node in the tree contains:
+- **Title**: The heading or section name
+- **Content**: The actual text content
+- **Summary**: An LLM-generated summary for navigation
+- **Children**: Links to child nodes
+
+## Nodes
+
+A **node** is the fundamental unit in ReasonDB. Every piece of content lives in a node.
+
+| Property | Description |
+|----------|-------------|
+| `id` | Unique identifier (e.g., `node_xyz789`) |
+| `title` | Node title from document structure |
+| `content` | The actual text content |
+| `summary` | LLM-generated summary for search navigation |
+| `depth` | Level in the tree (0 = root) |
+| `children_ids` | IDs of child nodes |
+| `parent_id` | ID of parent node (null for root) |
+
+### Leaf vs Branch Nodes
+
+- **Leaf nodes** have no children and contain the actual content
+- **Branch nodes** have children and typically contain section overviews
+
+## Tables
+
+**Tables** are collections that organize documents. Think of them like folders or databases:
+
+```bash
+# Create a table for legal documents
+curl -X POST http://localhost:4444/v1/tables \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Legal Contracts", "metadata": {"department": "legal"}}'
+```
+
+Tables help you:
+- Organize documents by topic or department
+- Scope searches to specific collections
+- Apply different retention policies
+- Track document counts and statistics
+
+## LLM-Guided Search
+
+The core innovation of ReasonDB is how it searches. Instead of vector similarity, ReasonDB uses an LLM to **reason through the tree structure**.
+
+### How It Works
+
+<Mermaid>
+{`sequenceDiagram
+    participant User
+    participant API
+    participant LLM
+    participant Tree
+
+    User->>API: "What is backpropagation?"
+    API->>Tree: Get root node summaries
+    API->>LLM: Which branch is relevant?
+    LLM-->>API: "Chapter 3: Neural Networks" (0.9 confidence)
+    API->>Tree: Get Chapter 3 children
+    API->>LLM: Which section is relevant?
+    LLM-->>API: "Section 3.2: Backpropagation" (0.95 confidence)
+    API->>Tree: Get leaf content
+    API->>LLM: Extract answer from content
+    LLM-->>API: "Backpropagation is..."
+    API-->>User: Answer + confidence + path`}
+</Mermaid>
+
+### Beam Search
+
+ReasonDB uses **beam search** to explore multiple paths in parallel:
+
+- **Beam Width**: How many branches to explore simultaneously (default: 3)
+- **Max Depth**: Maximum tree depth to traverse (default: 10)
+- **Min Confidence**: Threshold to prune low-confidence branches (default: 0.3)
+
+```bash
+curl -X POST http://localhost:4444/v1/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What are the advantages of neural networks?",
+    "beam_width": 5,
+    "max_depth": 8,
+    "min_confidence": 0.4
+  }'
+```
+
+### Why This Matters
+
+| Vector Search | ReasonDB Search |
+|---------------|-----------------|
+| Finds "similar" text | Finds "relevant" content |
+| Loses document structure | Preserves hierarchy |
+| One-shot retrieval | Iterative reasoning |
+| No explanation | Shows traversal path |
+| Same quality for all queries | Adapts to query complexity |
+
+## Search vs Query
+
+ReasonDB offers two ways to find documents:
+
+### Search Endpoint (`/v1/search`)
+
+LLM-guided tree traversal for complex questions:
+
+```bash
+curl -X POST http://localhost:4444/v1/search \
+  -d '{"query": "Explain how neural networks learn"}'
+```
+
+Best for:
+- Natural language questions
+- Complex reasoning
+- Answer extraction
+- Understanding context
+
+### Query Endpoint (`/v1/query`)
+
+SQL-like RQL queries for filtering and aggregation:
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM legal WHERE author = '\''Alice'\'' LIMIT 10"}'
+```
+
+Best for:
+- Filtering by metadata
+- Full-text keyword search (SEARCH clause)
+- Aggregations (COUNT, SUM)
+- Combining filters with LLM reasoning (REASON clause)
+
+## Ingestion Pipeline
+
+When you ingest a document, ReasonDB processes it through several stages:
+
+<Mermaid>
+{`flowchart LR
+    Input[Input: PDF, MD, HTML] --> Extract[Extract Text]
+    Extract --> Chunk[Chunk by Structure]
+    Chunk --> Tree[Build Tree]
+    Tree --> Summarize[LLM Summarize]
+    Summarize --> Index[Index and Store]`}
+</Mermaid>
+
+1. **Extract**: Parse the document format (PDF, Markdown, HTML, etc.)
+2. **Chunk**: Split by headings and semantic boundaries
+3. **Build Tree**: Create hierarchical structure from document outline
+4. **Summarize**: Generate LLM summaries for each node (bottom-up)
+5. **Index**: Store in database with BM25 text index
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Document Ingestion" icon="file-arrow-up" href="/guides/ingestion">
+    Learn how to ingest different document types
+  </Card>
+  <Card title="Search Guide" icon="magnifying-glass" href="/guides/search">
+    Master LLM-guided search parameters
+  </Card>
+  <Card title="RQL Query Language" icon="terminal" href="/guides/rql">
+    Write SQL-like queries
+  </Card>
+  <Card title="Architecture" icon="building" href="/advanced/architecture">
+    Deep dive into system design
+  </Card>
+</CardGroup>

@@ -1,0 +1,103 @@
+---
+description: Commit documentation changes to git
+globs: ["**/*.mdx", "**/docs.json"]
+---
+
+# Commit Documentation
+
+When asked to commit documentation changes:
+
+## Step 1: Check Status
+
+Run git status and show summary:
+
+"**Changes Ready to Commit:**
+
+Modified (3):
+- `guides/auth.mdx` - Updated examples
+- `api/users.mdx` - Added endpoint
+- `docs.json` - Updated navigation
+
+New (1):
+- `guides/webhooks.mdx`
+
+Deleted (1):
+- `old/deprecated.mdx`
+
+Options:
+1. Review changes
+2. Commit all
+3. Select files
+4. Cancel"
+
+## Step 2: Review (if requested)
+
+Show meaningful diff:
+```diff
+- const token = auth.getToken(user);
++ const token = await auth.getToken(user, { refresh: true });
+```
+
+## Step 3: Generate Message
+
+Suggest commit message based on changes:
+
+```
+docs: update authentication and add webhooks guide
+
+- Update auth.getToken() with refresh parameter
+- Add webhook integration guide
+- Remove deprecated API docs
+```
+
+Options:
+1. Use this message
+2. Edit message
+3. Custom message
+
+## Step 4: Confirm
+
+"Ready to commit:
+
+```
+docs: update authentication and add webhooks guide
+```
+
+Files: 5 changed
+
+Proceed? (yes/no)"
+
+## Step 5: Execute
+
+```bash
+git add docs/
+git commit -m "message"
+```
+
+## Step 6: Summary
+
+"✓ Committed!
+
+Commit: `abc1234`
+Branch: `main`
+
+Next steps:
+1. Push: `git push`
+2. Deploy: `npm run deploy`
+
+Push changes?"
+
+## Commit Types
+
+- `docs:` - Documentation changes
+- `fix:` - Fix doc errors
+- `feat:` - New doc features
+- `refactor:` - Reorganize docs
+- `chore:` - Maintenance
+
+## Safety
+
+- Always show changes first
+- Generate meaningful messages
+- Don't commit secrets
+- Suggest pushing, don't auto-push

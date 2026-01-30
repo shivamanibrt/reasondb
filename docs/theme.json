@@ -1,0 +1,31 @@
+{
+  "$schema": "https://devdoc.sh/theme.json",
+  "logo": {
+    "light": "/assets/logo.svg",
+    "dark": "/assets/logo.svg",
+    "alt": "Documentation",
+    "width": 120,
+    "height": 24
+  },
+  "header": {
+    "showAskAI": true,
+    "showSearch": true,
+    "showThemeToggle": true
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/brainfish-ai/devdoc",
+        "external": true
+      }
+    ]
+  },
+  "colors": {
+    "primary": "#10b981",
+    "primaryLight": "#10b981",
+    "primaryDark": "#10b981"
+  },
+  "defaultTheme": "system",
+  "customCss": "custom.css"
+}

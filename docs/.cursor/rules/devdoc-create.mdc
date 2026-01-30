@@ -1,0 +1,152 @@
+---
+description: Create new documentation pages by searching codebase first
+globs: ["**/*.mdx", "**/docs.json"]
+---
+
+# Create Documentation
+
+When asked to create documentation:
+
+## Key Principles
+
+| Principle | Description |
+|-----------|-------------|
+| **Search before generate** | ALWAYS search/read files before writing |
+| **No hallucination** | Only use data from actual source files |
+| **Review before write** | ALWAYS show draft for user approval |
+| **Flag feature flags** | Detect conditional features |
+| **Flag duplicates** | Identify similar features |
+| **Flag unclear sections** | Offer options if info not found |
+
+## Step 0: Read Context
+
+Read `.devdoc/context.json` for terminology, templates, and code language.
+
+## Step 1: Understand What to Create
+
+Ask: "What would you like to document?
+1. **A feature or concept** - I'll create a guide/tutorial
+2. **Code files** - Point me to the code, I'll generate docs
+3. **API endpoints** - I'll analyze your API
+4. **Something else** - Describe what you need"
+
+## Step 2: Gather Information
+
+**For Feature/Concept:**
+- Topic/title?
+- Page type? (Guide, Tutorial, Reference, Troubleshooting)
+
+**For Code/API:**
+- Which files/directories?
+- Focus? (Public API, Architecture, Examples)
+
+## Step 3: Search Codebase (CRITICAL)
+
+**ALWAYS search and read actual files:**
+
+```bash
+# Find related files
+git ls-files | grep -iE "(auth|login|session)"
+
+# Search file contents
+rg -l "export.*function.*login" --type ts
+rg -l "interface.*User" --type ts
+
+# Find examples
+git ls-files | grep -iE "(example|test)"
+```
+
+**Read the files found and extract:**
+- Function signatures and parameters
+- Type definitions
+- Code examples from tests
+
+**If files not found:**
+```
+⚠️ UNCLEAR TOPIC: [topic]
+
+Options:
+1. 🔄 Skip this doc
+2. ✏️ Different topic
+3. 📝 Mark as TODO
+4. ❓ Ask for path
+```
+
+**Detect feature flags & duplicates:**
+```bash
+rg -l "featureFlag|isEnabled|FF_" --type ts
+rg "export.*(login|authenticate)" --type ts -l
+```
+
+Flag findings:
+```
+⚠️ FEATURE FLAG: newAuthFlow
+   Question: Document which version?
+   
+🔄 DUPLICATE: authenticate() in v2/
+   Question: Document primary or all?
+```
+
+## Step 4: Read Template
+
+Read from `.devdoc/templates/` for structure.
+
+## Step 5: Draft Content (From Files Only)
+
+**ONLY use data from files you read:**
+
+1. Follow template structure
+2. Get exact signatures FROM SOURCE FILES
+3. Get types FROM TYPE FILES
+4. Get examples FROM TEST/EXAMPLE FILES
+5. Include mermaid diagrams for flows
+6. Use MDX components
+
+## Step 6: Review with User (MANDATORY)
+
+**ALWAYS show draft before creating:**
+
+```
+═══════════════════════════════════
+CONTENT REVIEW: [filename].mdx
+═══════════════════════════════════
+
+[Full draft content here]
+
+NOTICES:
+⚠️ Feature flag: [name]
+🔄 Duplicate: [function] in [path]
+
+OPTIONS:
+1. ✅ Approve - Create file
+2. ✏️ Edit - Make changes
+3. 🔄 Switch version - Use flagged
+4. ➕ Add duplicate - Include related
+5. ❌ Cancel
+```
+
+## Step 7: Save and Update Navigation
+
+**Only after user approves:**
+1. Propose file location
+2. Create MDX file
+3. Ask to update docs.json
+
+## Guidelines
+
+- **SEARCH FIRST** - Never generate without reading files
+- **USE MERMAID DIAGRAMS** - For architecture, flows, sequences
+- Flag insufficient info with auto-correct options
+- Include error handling from source code
+- Add TODO for sections needing review
+- Cite source files in frontmatter
+
+## Mermaid Diagrams (Required)
+
+| Content | Diagram Type |
+|---------|--------------|
+| Architecture | `flowchart TB` |
+| Data flow | `flowchart LR` |
+| API calls | `sequenceDiagram` |
+| State machine | `stateDiagram-v2` |
+| Data models | `erDiagram` |

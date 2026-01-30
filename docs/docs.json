@@ -1,0 +1,107 @@
+{
+  "$schema": "https://devdoc.sh/docs.json",
+  "name": "ReasonDB",
+  "docType": "api",
+  "favicon": "/assets/favicon.svg",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "type": "docs",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "icon": "rocket-launch",
+            "pages": [
+              "index",
+              "quickstart",
+              "concepts"
+            ]
+          },
+          {
+            "group": "Guides",
+            "icon": "book-open",
+            "pages": [
+              "guides/ingestion",
+              "guides/search",
+              "guides/rql",
+              "guides/tables",
+              "guides/relationships",
+              "guides/configuration",
+              "guides/authentication"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "icon": "gear",
+            "pages": [
+              "advanced/architecture"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Tutorials",
+        "type": "docs",
+        "path": "/tutorials",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "icon": "rocket-launch",
+            "pages": [
+              "tutorials/index",
+              "tutorials/rql-basics"
+            ]
+          },
+          {
+            "group": "Use Cases",
+            "icon": "lightbulb",
+            "pages": [
+              "tutorials/document-relationships",
+              "tutorials/legal-search",
+              "tutorials/knowledge-base",
+              "tutorials/research-papers"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "type": "openapi",
+        "path": "/api-reference",
+        "versions": [
+          {
+            "version": "v1",
+            "spec": "api-reference/openapi.json",
+            "default": true
+          }
+        ],
+        "groups": [
+          {
+            "group": "Overview",
+            "icon": "book-open",
+            "pages": [
+              "api-reference/introduction",
+              "api-reference/errors"
+            ]
+          }
+        ]
+      }
+    ],
+    "global": {
+      "anchors": [
+        {
+          "anchor": "GitHub",
+          "href": "https://github.com/reasondb/reasondb",
+          "icon": "github-logo"
+        }
+      ]
+    }
+  },
+  "api": {
+    "baseUrl": "http://localhost:4444",
+    "playground": {
+      "mode": "show"
+    }
+  }
+}

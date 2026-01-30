@@ -1,0 +1,135 @@
+---
+description: Update documentation by searching actual source files
+globs: ["**/*.mdx", "**/docs.json"]
+---
+
+# Update Documentation
+
+When asked to update documentation:
+
+## Key Principles
+
+| Principle | Description |
+|-----------|-------------|
+| **Search before update** | ALWAYS read source files before changing |
+| **No hallucination** | Only update based on actual files |
+| **Review before write** | ALWAYS show before/after for approval |
+| **Flag feature flags** | Detect conditional features |
+| **Flag duplicates** | Identify similar features |
+| **Flag unclear sections** | Offer options if source not found |
+
+## Step 0: Read Context
+
+Read `.devdoc/context.json` for terminology and conventions.
+
+## Step 1: Understand What to Update
+
+Ask: "What would you like to update?
+1. **A specific page** - Tell me which page
+2. **Sync with codebase** - I'll find outdated docs
+3. **Navigation** - Update docs.json
+4. **Multiple pages** - Describe changes"
+
+## Step 2: Search Source Files (CRITICAL)
+
+**For Specific Page:**
+- Read the doc file
+- Search for corresponding source file
+- Compare documented vs actual
+
+**For Codebase Sync:**
+
+```bash
+# Find all exports
+rg "export (function|class|const)" --type ts -l
+
+# Search for specific features
+git ls-files | grep -iE "(auth|user|api)"
+```
+
+Read both doc files AND source files, then compare:
+
+```
+DOCUMENTED (from docs/api/users.mdx):
+  - createUser(name, email)
+
+ACTUAL (from src/lib/users.ts):
+  - createUser(options: CreateUserInput)
+
+→ SIGNATURE MISMATCH
+```
+
+Generate sync report:
+```
+## Sync Report (from source files)
+
+### Signatures Changed
+- `docs/api/users.mdx` vs `src/lib/users.ts`:
+  - Documented: createUser(name, email)
+  - Source: createUser(options: CreateUserInput)
+
+### New Exports (in source, not docs)
+- src/lib/auth.ts: refreshToken()
+
+### Unable to Verify (source not found)
+⚠️ docs/legacy/old-api.mdx - No matching source
+   Options:
+   1. 🔄 Remove doc
+   2. ❓ Ask for path
+   3. 📝 Mark as needs-review
+
+### Feature Flags Detected
+⚠️ src/lib/auth/index.ts - newAuthFlow
+   Current docs: OLD implementation
+   Question: Update to which version?
+
+### Duplicates Detected
+🔄 authenticate() in v2/ similar to login()
+   Question: How to handle?
+```
+
+## Step 3: Review Each Change (MANDATORY)
+
+**Show before/after for EACH file:**
+
+```
+═══════════════════════════════════
+CHANGE REVIEW: docs/api/users.mdx
+═══════════════════════════════════
+
+BEFORE:
+## createUser(name, email)
+
+AFTER:
+## createUser(options)
+| Property | Type |
+|----------|------|
+| options | CreateUserInput |
+
+NOTICES:
+⚠️ Feature flag: None
+🔄 Duplicate: None
+
+OPTIONS:
+1. ✅ Approve - Apply change
+2. ✏️ Edit - Modify
+3. ⏭️ Skip - Don't update
+4. ❌ Cancel all
+```
+
+## Step 4: Apply Updates (After Approval)
+
+- **Only after user approves each change**
+- Preserve prose, update technical details
+- Add feature flag notices where applicable
+- Add deprecation notices for removed features
+- Create stubs for new features
+
+## Guidelines
+
+- **SEARCH FIRST** - Read source files before any update
+- **REVIEW WITH USER** - Show before/after for each change
+- **FLAG FEATURE FLAGS** - Detect and ask which version
+- **FLAG DUPLICATES** - Let user decide how to handle
+- Preserve existing prose
+- Add TODO for unverified sections

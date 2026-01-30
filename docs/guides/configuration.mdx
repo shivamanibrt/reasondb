@@ -1,0 +1,402 @@
+---
+title: Configuration
+description: Configure ReasonDB server settings, LLM API keys, and environment variables
+---
+
+ReasonDB provides a PostgreSQL-like configuration experience with persistent config files and CLI commands.
+
+## Quick Setup
+
+The fastest way to configure ReasonDB:
+
+```bash
+# Interactive setup wizard
+reasondb config init
+```
+
+This walks you through:
+1. Selecting your LLM provider (Anthropic, OpenAI, Gemini, Cohere)
+2. Setting your API key
+3. Configuring server settings
+
+## Configuration Commands
+
+| Command | Description |
+|---------|-------------|
+| `reasondb config init` | Interactive setup wizard |
+| `reasondb config set <key> <value>` | Set a configuration value |
+| `reasondb config get <key>` | Get a configuration value |
+| `reasondb config unset <key>` | Remove a configuration value |
+| `reasondb config list` | Show all configuration |
+| `reasondb config path` | Show config file location |
+
+### Setting LLM API Keys
+
+```bash
+# Set provider and API key
+reasondb config set llm.provider anthropic
+reasondb config set llm.api_key sk-ant-xxxxx
+
+# Optionally set a custom model
+reasondb config set llm.model claude-sonnet-4-20250514
+```
+
+### Setting Server Configuration
+
+```bash
+# Default server URL for CLI commands
+reasondb config set server.url http://localhost:4444
+
+# Server binding settings
+reasondb config set server.host 127.0.0.1
+reasondb config set server.port 4444
+
+# Database path
+reasondb config set server.db_path /var/lib/reasondb/data.redb
+```
+
+### Viewing Configuration
+
+```bash
+reasondb config list
+```
+
+Output:
+```
+ReasonDB Configuration
+Config file: /Users/you/Library/Application Support/reasondb/config.toml
+
+[server]
+  url = http://localhost:4444
+  host = 127.0.0.1
+  port = 4444
+  db_path = data/reasondb.redb
+
+[llm]
+  provider = anthropic
+  api_key = sk-ant-a...pwAA
+  model = (default)
+```
+
+## Configuration File
+
+The config file is stored at:
+
+| Platform | Location |
+|----------|----------|
+| macOS | `~/Library/Application Support/reasondb/config.toml` |
+| Linux | `~/.config/reasondb/config.toml` |
+| Windows | `C:\Users\<User>\AppData\Roaming\reasondb\config.toml` |
+
+### Example Config File
+
+```toml
+[server]
+url = "http://localhost:4444"
+host = "127.0.0.1"
+port = 4444
+db_path = "data/reasondb.redb"
+
+[llm]
+provider = "anthropic"
+api_key = "sk-ant-xxxxx"
+model = "claude-sonnet-4-20250514"
+
+default_table = "documents"
+```
+
+<Note>
+The config file has restricted permissions (0600 on Unix) to protect your API keys.
+</Note>
+
+## Environment Variables
+
+Environment variables override config file values. This is useful for:
+- CI/CD pipelines
+- Docker deployments
+- Temporary overrides
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `ANTHROPIC_API_KEY` | Anthropic Claude API key | - |
+| `OPENAI_API_KEY` | OpenAI API key | - |
+| `GOOGLE_API_KEY` | Google Gemini API key | - |
+| `COHERE_API_KEY` | Cohere API key | - |
+| `REASONDB_PORT` | Server port | `4444` |
+| `REASONDB_HOST` | Server host | `127.0.0.1` |
+| `REASONDB_PATH` | Database file path | `reasondb.redb` |
+| `REASONDB_URL` | Server URL for CLI | `http://localhost:4444` |
+
+### Priority Order
+
+1. CLI arguments (highest priority)
+2. Environment variables
+3. Config file
+4. Default values (lowest priority)
+
+## LLM Provider Configuration
+
+### Supported Providers
+
+| Provider | Config Value | Environment Variable |
+|----------|-------------|---------------------|
+| Anthropic Claude | `anthropic` or `claude` | `ANTHROPIC_API_KEY` |
+| OpenAI GPT-4 | `openai` or `gpt` | `OPENAI_API_KEY` |
+| Google Gemini | `gemini` or `google` | `GOOGLE_API_KEY` |
+| Cohere | `cohere` | `COHERE_API_KEY` |
+
+### Using Config (Recommended)
+
+```bash
+# One-time setup
+reasondb config set llm.provider anthropic
+reasondb config set llm.api_key sk-ant-xxxxx
+
+# Start server - picks up config automatically
+reasondb serve
+```
+
+### Using Environment Variables
+
+```bash
+# Per-session
+export ANTHROPIC_API_KEY=sk-ant-xxxxx
+reasondb serve
+```
+
+### Auto-Detection
+
+If no provider is configured but an API key is set via environment variable, ReasonDB auto-detects in this order:
+1. Anthropic (if `ANTHROPIC_API_KEY` is set)
+2. OpenAI (if `OPENAI_API_KEY` is set)
+3. Gemini (if `GOOGLE_API_KEY` is set)
+4. Cohere (if `COHERE_API_KEY` is set)
+
+## Server Configuration
+
+### Port and Host
+
+```bash
+# Via config
+reasondb config set server.port 8080
+reasondb config set server.host 0.0.0.0
+
+# Via CLI (overrides config)
+reasondb serve --port 8080 --host 0.0.0.0
+
+# Via environment (overrides config)
+REASONDB_PORT=8080 reasondb serve
+```
+
+### Database Path
+
+```bash
+# Via config
+reasondb config set server.db_path /var/lib/reasondb/data.redb
+
+# Via CLI
+reasondb serve --db-path /var/lib/reasondb/data.redb
+
+# Via environment
+REASONDB_PATH=/var/lib/reasondb/data.redb reasondb serve
+```
+
+<Warning>
+The database file is exclusive - only one server instance can use it at a time.
+</Warning>
+
+## Production Configuration
+
+### Recommended Setup
+
+```bash
+# Configure LLM
+reasondb config set llm.provider anthropic
+reasondb config set llm.api_key sk-ant-xxxxx
+
+# Configure server for production
+reasondb config set server.host 0.0.0.0
+reasondb config set server.port 4444
+reasondb config set server.db_path /data/reasondb.redb
+
+# Start server
+reasondb serve
+```
+
+### Logging
+
+Control log verbosity with `RUST_LOG`:
+
+```bash
+# Info level (recommended for production)
+RUST_LOG=reasondb=info reasondb serve
+
+# Debug level (development)
+RUST_LOG=reasondb=debug reasondb serve
+
+# Trace level (verbose debugging)
+RUST_LOG=reasondb=trace reasondb serve
+```
+
+### Running as a Service
+
+Example systemd service file:
+
+```ini
+[Unit]
+Description=ReasonDB Server
+After=network.target
+
+[Service]
+Type=simple
+User=reasondb
+# API key from config file - no need to set here!
+Environment=RUST_LOG=reasondb=info
+ExecStart=/usr/local/bin/reasondb serve
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### Docker
+
+```dockerfile
+FROM rust:1.75 as builder
+WORKDIR /app
+COPY . .
+RUN cargo build --release
+
+FROM debian:bookworm-slim
+COPY --from=builder /app/target/release/reasondb /usr/local/bin/
+COPY --from=builder /app/target/release/reasondb-server /usr/local/bin/
+
+# Create config directory
+RUN mkdir -p /root/.config/reasondb
+
+# Set production defaults
+ENV REASONDB_HOST=0.0.0.0
+ENV REASONDB_PORT=4444
+ENV REASONDB_PATH=/data/reasondb.redb
+
+EXPOSE 4444
+VOLUME ["/data", "/root/.config/reasondb"]
+
+CMD ["reasondb", "serve"]
+```
+
+```bash
+# Run with API key
+docker run -d \
+  -p 4444:4444 \
+  -v reasondb-data:/data \
+  -e ANTHROPIC_API_KEY=sk-ant-xxxxx \
+  reasondb
+```
+
+## API Configuration
+
+### Base URL
+
+The API is available at the configured host and port:
+
+```
+http://{REASONDB_HOST}:{REASONDB_PORT}/v1/
+```
+
+### Swagger UI
+
+Interactive API documentation:
+
+```
+http://{REASONDB_HOST}:{REASONDB_PORT}/swagger-ui/
+```
+
+### OpenAPI Spec
+
+The OpenAPI specification:
+
+```
+http://{REASONDB_HOST}:{REASONDB_PORT}/api-docs/openapi.json
+```
+
+## Search Configuration
+
+Search parameters can be configured per-request:
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `max_depth` | 10 | Maximum tree traversal depth |
+| `beam_width` | 3 | Parallel branches to explore |
+| `min_confidence` | 0.3 | Pruning threshold |
+
+Example with custom search config:
+
+```bash
+curl -X POST http://localhost:4444/v1/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "...",
+    "max_depth": 5,
+    "beam_width": 1,
+    "min_confidence": 0.5
+  }'
+```
+
+## Health Check
+
+Verify the server is running:
+
+```bash
+# Via CLI
+reasondb health
+
+# Via curl
+curl http://localhost:4444/health
+# Returns: OK
+```
+
+## Authentication Configuration
+
+For production deployments, enable API key authentication:
+
+```bash
+# Enable authentication
+reasondb config set auth.enabled true
+reasondb config set auth.master_key "your-secret-master-key"
+
+# Or via CLI flags
+reasondb serve --auth-enabled --master-key "your-secret-master-key"
+```
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `REASONDB_AUTH_ENABLED` | Enable API key authentication | `false` |
+| `REASONDB_MASTER_KEY` | Admin master key for key management | - |
+
+<Card title="Authentication Guide" icon="key" href="/guides/authentication">
+  Learn how to manage API keys, permissions, and secure your deployment.
+</Card>
+
+## Security Best Practices
+
+1. **Use config files for API keys** - more secure than environment variables in shell history
+2. **Restrict config file permissions** - automatically set to 0600 on Unix
+3. **Use environment variables in CI/CD** - don't commit API keys to version control
+4. **Bind to localhost in development** - use `127.0.0.1` not `0.0.0.0`
+5. **Use a reverse proxy in production** - for SSL termination and rate limiting
+6. **Enable authentication in production** - protect your API with API keys
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/guides/authentication">
+    Secure your API with API keys
+  </Card>
+  <Card title="Quickstart" icon="rocket-launch" href="/quickstart">
+    Get started with ReasonDB
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/introduction">
+    Full API documentation
+  </Card>
+</CardGroup>

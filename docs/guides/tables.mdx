@@ -1,0 +1,261 @@
+---
+title: Tables & Organization
+description: Organize your documents into tables for better management and search
+---
+
+Tables in ReasonDB are collections that group related documents. They help you organize content by topic, department, or any logical grouping, and allow you to scope searches to specific collections.
+
+## Why Use Tables?
+
+- **Organization**: Group documents by topic, team, or purpose
+- **Search Scoping**: Restrict searches to relevant collections
+- **Access Control**: Apply different policies per table (future)
+- **Statistics**: Track document counts and node totals per table
+
+## Creating Tables
+
+```bash
+curl -X POST http://localhost:4444/v1/tables \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Legal Contracts",
+    "description": "All legal documents and contracts",
+    "metadata": {
+      "department": "legal",
+      "retention_years": 7
+    }
+  }'
+```
+
+Response:
+```json
+{
+  "id": "tbl_abc123",
+  "name": "Legal Contracts",
+  "description": "All legal documents and contracts",
+  "metadata": {
+    "department": "legal",
+    "retention_years": 7
+  },
+  "document_count": 0,
+  "total_nodes": 0,
+  "created_at": "2026-01-27T10:00:00Z",
+  "updated_at": "2026-01-27T10:00:00Z"
+}
+```
+
+## Table Schema
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique identifier (auto-generated) |
+| `name` | string | Human-readable name (required) |
+| `description` | string | Optional description |
+| `metadata` | object | Custom key-value metadata |
+| `document_count` | int | Number of documents |
+| `total_nodes` | int | Total nodes across all documents |
+| `created_at` | datetime | Creation timestamp |
+| `updated_at` | datetime | Last update timestamp |
+
+## Listing Tables
+
+```bash
+curl http://localhost:4444/v1/tables
+```
+
+Response:
+```json
+{
+  "tables": [
+    {"id": "tbl_abc123", "name": "Legal Contracts", "document_count": 45, "total_nodes": 1250},
+    {"id": "tbl_def456", "name": "Research Papers", "document_count": 120, "total_nodes": 3400}
+  ],
+  "total": 2
+}
+```
+
+## Getting Table Details
+
+```bash
+curl http://localhost:4444/v1/tables/tbl_abc123
+```
+
+Returns full table information including metadata.
+
+## Updating Tables
+
+Update name, description, or metadata:
+
+```bash
+curl -X PATCH http://localhost:4444/v1/tables/tbl_abc123 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Legal Documents",
+    "metadata": {
+      "department": "legal",
+      "owner": "Legal Team"
+    }
+  }'
+```
+
+<Note>
+Metadata updates are merged, not replaced. New keys are added, existing keys are updated.
+</Note>
+
+## Deleting Tables
+
+### Move Documents to Default
+
+By default, deleting a table moves its documents to the "default" table:
+
+```bash
+curl -X DELETE http://localhost:4444/v1/tables/tbl_abc123
+```
+
+### Cascade Delete
+
+To delete the table and all its documents:
+
+```bash
+curl -X DELETE http://localhost:4444/v1/tables/tbl_abc123 \
+  -H "Content-Type: application/json" \
+  -d '{"cascade": true}'
+```
+
+<Warning>
+Cascade delete permanently removes all documents in the table. This cannot be undone.
+</Warning>
+
+### Default Table
+
+The "default" table cannot be deleted:
+
+```bash
+curl -X DELETE http://localhost:4444/v1/tables/default
+# Returns: 400 Bad Request - Cannot delete the default table
+```
+
+## Documents in Tables
+
+### Assign During Ingestion
+
+Specify `table_id` when ingesting:
+
+```bash
+curl -X POST http://localhost:4444/v1/ingest/text \
+  -d '{
+    "title": "NDA Agreement",
+    "table_id": "tbl_legal",
+    "content": "..."
+  }'
+```
+
+### List Documents in Table
+
+```bash
+curl http://localhost:4444/v1/tables/tbl_legal/documents
+```
+
+Response:
+```json
+{
+  "table_id": "tbl_legal",
+  "documents": [
+    {
+      "id": "doc_xyz789",
+      "title": "NDA Agreement",
+      "total_nodes": 12,
+      "tags": ["nda", "confidential"],
+      "author": "Legal Team",
+      "created_at": "2026-01-27T10:00:00Z"
+    }
+  ],
+  "total": 1
+}
+```
+
+## Searching Within Tables
+
+### Using Search API
+
+```bash
+curl -X POST http://localhost:4444/v1/search \
+  -d '{
+    "query": "confidentiality clause",
+    "table_id": "tbl_legal"
+  }'
+```
+
+### Using RQL
+
+```sql
+SELECT * FROM legal WHERE tags CONTAINS 'nda'
+```
+
+The table name in RQL refers to the table's `name` field (case-insensitive).
+
+## Organization Patterns
+
+### By Department
+
+```
+tables/
+├── legal/           # Legal documents, contracts
+├── engineering/     # Technical documentation
+├── hr/              # HR policies, handbooks
+└── sales/           # Sales materials, proposals
+```
+
+### By Document Type
+
+```
+tables/
+├── contracts/       # All contracts
+├── research/        # Research papers
+├── internal-docs/   # Internal documentation
+└── external-docs/   # Customer-facing docs
+```
+
+### By Project
+
+```
+tables/
+├── project-alpha/   # Project Alpha documents
+├── project-beta/    # Project Beta documents
+└── archived/        # Completed projects
+```
+
+## Table Metadata Best Practices
+
+Use metadata for additional organization:
+
+```json
+{
+  "name": "Q1 2026 Contracts",
+  "metadata": {
+    "department": "legal",
+    "quarter": "Q1",
+    "year": 2026,
+    "owner": "alice@company.com",
+    "retention_policy": "7_years"
+  }
+}
+```
+
+Query by metadata using RQL:
+
+```sql
+SELECT * FROM contracts
+WHERE metadata.quarter = 'Q1' AND metadata.year = 2026
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Document Ingestion" icon="file-arrow-up" href="/guides/ingestion">
+    Ingest documents into tables
+  </Card>
+  <Card title="Search Guide" icon="magnifying-glass" href="/guides/search">
+    Search within tables
+  </Card>
+</CardGroup>

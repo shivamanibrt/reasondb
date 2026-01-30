@@ -1,0 +1,428 @@
+---
+title: Architecture
+description: Deep dive into ReasonDB's system architecture and design
+---
+
+ReasonDB is built as a Rust workspace with three main crates: `reasondb-core`, `reasondb-ingest`, and `reasondb-server`. This page explains the system architecture and how components interact.
+
+## System Overview
+
+<Mermaid>
+{`flowchart TB
+    subgraph Clients
+        API[HTTP Clients]
+        Swagger[Swagger UI]
+    end
+
+    subgraph Server["reasondb-server"]
+        Router[Axum Router]
+        Routes[Route Handlers]
+        State[App State]
+    end
+
+    subgraph Core["reasondb-core"]
+        Engine[Search Engine]
+        Store[Storage Layer]
+        LLM[LLM Interface]
+        RQL[RQL Parser]
+        Index[Text Index]
+    end
+
+    subgraph Ingest["reasondb-ingest"]
+        Pipeline[Ingest Pipeline]
+        Extractor[Text Extractor]
+        Chunker[Chunker]
+        TreeBuilder[Tree Builder]
+        Summarizer[Summarizer]
+    end
+
+    subgraph External
+        DB[(redb)]
+        Claude[Anthropic]
+        OpenAI[OpenAI]
+    end
+
+    API --> Router
+    Swagger --> Router
+    Router --> Routes
+    Routes --> State
+    State --> Engine
+    State --> Store
+    State --> Pipeline
+    Engine --> LLM
+    Engine --> Store
+    Pipeline --> Extractor --> Chunker --> TreeBuilder --> Summarizer
+    Summarizer --> LLM
+    Pipeline --> Store
+    Store --> DB
+    RQL --> Engine
+    Index --> Store
+    LLM --> Claude
+    LLM --> OpenAI`}
+</Mermaid>
+
+## Crate Dependencies
+
+<Mermaid>
+{`graph BT
+    subgraph External[External Crates]
+        redb
+        bincode
+        serde
+        tokio
+        axum
+        rig[rig-core]
+        tantivy
+    end
+
+    subgraph Workspace[ReasonDB Workspace]
+        core[reasondb-core]
+        ingest[reasondb-ingest]
+        server[reasondb-server]
+    end
+
+    core --> redb
+    core --> bincode
+    core --> serde
+    core --> tokio
+    core --> rig
+    core --> tantivy
+
+    ingest --> core
+    ingest --> tokio
+
+    server --> core
+    server --> ingest
+    server --> axum
+    server --> tokio`}
+</Mermaid>
+
+## reasondb-core
+
+The core library provides the fundamental abstractions:
+
+### Data Models
+
+```rust
+// Document: Top-level container
+struct Document {
+    id: String,
+    title: String,
+    root_node_id: String,
+    table_id: String,
+    total_nodes: usize,
+    max_depth: u8,
+    tags: Vec<String>,
+    author: Option<String>,
+    metadata: HashMap<String, Value>,
+}
+
+// Node: Tree node with content and summary
+struct Node {
+    id: String,
+    document_id: String,
+    parent_id: Option<String>,
+    children_ids: Vec<String>,
+    title: String,
+    content: Option<String>,
+    summary: String,
+    depth: u8,
+}
+
+// Table: Document collection
+struct Table {
+    id: String,
+    name: String,
+    description: Option<String>,
+    metadata: HashMap<String, Value>,
+    document_count: usize,
+    total_nodes: usize,
+}
+```
+
+### Storage Layer
+
+The storage layer uses `redb` for ACID-compliant persistence:
+
+<Mermaid>
+{`erDiagram
+    DOCUMENTS ||--o{ NODES : contains
+    TABLES ||--o{ DOCUMENTS : contains
+
+    DOCUMENTS {
+        string id PK
+        string table_id FK
+        string title
+        string root_node_id
+        int total_nodes
+    }
+
+    NODES {
+        string id PK
+        string document_id FK
+        string parent_id
+        string title
+        text content
+        text summary
+        int depth
+    }
+
+    TABLES {
+        string id PK
+        string name
+        text description
+        int document_count
+    }`}
+</Mermaid>
+
+### LLM Interface
+
+The `ReasoningEngine` trait abstracts LLM providers:
+
+```rust
+#[async_trait]
+pub trait ReasoningEngine {
+    async fn evaluate_relevance(
+        &self,
+        query: &str,
+        summaries: &[NodeSummary],
+    ) -> Result<Vec<RelevanceScore>>;
+
+    async fn extract_answer(
+        &self,
+        query: &str,
+        content: &str,
+    ) -> Result<ExtractedAnswer>;
+
+    async fn generate_summary(
+        &self,
+        content: &str,
+    ) -> Result<String>;
+}
+```
+
+### Search Engine
+
+The beam search algorithm for tree traversal:
+
+<Mermaid>
+{`stateDiagram-v2
+    [*] --> GetRoots: Query received
+    GetRoots --> EvaluateNodes: Get root summaries
+    EvaluateNodes --> PruneLow: LLM scores relevance
+    PruneLow --> SelectTop: Remove low confidence
+    SelectTop --> CheckDepth: Keep top beam_width
+    CheckDepth --> GetChildren: depth not at max
+    CheckDepth --> ExtractAnswer: depth at max
+    GetChildren --> EvaluateNodes: Get child summaries
+    ExtractAnswer --> [*]: Return results`}
+</Mermaid>
+
+### RQL Parser
+
+SQL-like query parsing with Pest grammar:
+
+```
+query = { select ~ from ~ where? ~ search? ~ reason? ~ group_by? ~ order_by? ~ limit? }
+
+select = { "SELECT" ~ (star | field_list) }
+from = { "FROM" ~ table_name }
+where = { "WHERE" ~ condition }
+search = { "SEARCH" ~ string_literal }
+reason = { "REASON" ~ string_literal }
+```
+
+## reasondb-ingest
+
+The ingestion pipeline processes documents:
+
+<Mermaid>
+{`flowchart LR
+    subgraph Input
+        PDF[PDF]
+        MD[Markdown]
+        HTML[HTML]
+        URL[URL]
+    end
+
+    subgraph Extract["1. Extract"]
+        MarkItDown[MarkItDown]
+        PDFExtract[PDF Parser]
+    end
+
+    subgraph Chunk["2. Chunk"]
+        Heading[By Headings]
+        Semantic[Semantic Split]
+    end
+
+    subgraph Build["3. Build Tree"]
+        Structure[Parse Structure]
+        Nodes[Create Nodes]
+    end
+
+    subgraph Summarize["4. Summarize"]
+        LLM[LLM Calls]
+        BottomUp[Bottom-Up]
+    end
+
+    PDF --> PDFExtract
+    MD --> MarkItDown
+    HTML --> MarkItDown
+    URL --> MarkItDown
+
+    PDFExtract --> Heading
+    MarkItDown --> Heading
+    Heading --> Structure
+    Structure --> Nodes
+    Nodes --> BottomUp
+    BottomUp --> LLM`}
+</Mermaid>
+
+### Pipeline Configuration
+
+```rust
+struct PipelineConfig {
+    generate_summaries: bool,  // Generate LLM summaries
+    store_in_db: bool,         // Persist to storage
+    chunk_size: usize,         // Max chunk size
+    chunk_overlap: usize,      // Overlap between chunks
+}
+```
+
+## reasondb-server
+
+The HTTP server built with Axum:
+
+### Route Structure
+
+```
+/health              GET   - Health check
+/swagger-ui/         GET   - Swagger UI
+/api-docs/openapi.json GET - OpenAPI spec
+
+/v1/tables           POST  - Create table
+/v1/tables           GET   - List tables
+/v1/tables/:id       GET   - Get table
+/v1/tables/:id       PATCH - Update table
+/v1/tables/:id       DELETE- Delete table
+/v1/tables/:id/documents GET - List documents in table
+
+/v1/ingest/text      POST  - Ingest text
+/v1/ingest/file      POST  - Ingest file (multipart)
+/v1/ingest/url       POST  - Ingest URL
+
+/v1/search           POST  - LLM-guided search
+/v1/query            POST  - RQL query
+
+/v1/documents        GET   - List documents
+/v1/documents/:id    GET   - Get document
+/v1/documents/:id    DELETE- Delete document
+/v1/documents/:id/nodes GET - Get nodes
+/v1/documents/:id/tree  GET - Get tree
+```
+
+### Application State
+
+```rust
+struct AppState<R: ReasoningEngine> {
+    store: NodeStore,        // Database connection
+    reasoner: Arc<R>,        // LLM provider
+    text_index: TextIndex,   // BM25 index
+    query_cache: QueryCache, // REASON query cache
+    config: ServerConfig,    // Server settings
+}
+```
+
+## Data Flow
+
+### Ingestion Flow
+
+<Mermaid>
+{`sequenceDiagram
+    participant Client
+    participant Server
+    participant Pipeline
+    participant LLM
+    participant Store
+
+    Client->>Server: POST /v1/ingest/text
+    Server->>Pipeline: Start ingestion
+    Pipeline->>Pipeline: Extract & chunk text
+    Pipeline->>Pipeline: Build tree structure
+    loop For each node (bottom-up)
+        Pipeline->>LLM: Generate summary
+        LLM-->>Pipeline: Summary text
+    end
+    Pipeline->>Store: Save document & nodes
+    Pipeline->>Store: Index for BM25
+    Store-->>Server: Document created
+    Server-->>Client: IngestResponse`}
+</Mermaid>
+
+### Search Flow
+
+<Mermaid>
+{`sequenceDiagram
+    participant Client
+    participant Server
+    participant Engine
+    participant LLM
+    participant Store
+
+    Client->>Server: POST /v1/search
+    Server->>Engine: Execute search
+    Engine->>Store: Get root node summaries
+    loop Beam search until max_depth
+        Engine->>LLM: Evaluate relevance
+        LLM-->>Engine: Confidence scores
+        Engine->>Engine: Prune low confidence
+        Engine->>Engine: Select top beam_width
+        Engine->>Store: Get child summaries
+    end
+    Engine->>LLM: Extract answers
+    LLM-->>Engine: Extracted answers
+    Engine-->>Server: SearchResponse
+    Server-->>Client: Results + stats`}
+</Mermaid>
+
+## Technology Choices
+
+| Component | Technology | Rationale |
+|-----------|------------|-----------|
+| Storage | `redb` | Pure Rust, ACID, fast writes |
+| Text Index | `tantivy` | Rust Lucene, BM25 search |
+| Serialization | `bincode` | Fast binary, zero-copy |
+| Async | `tokio` | Industry standard, parallel I/O |
+| HTTP | `axum` | Type-safe, ergonomic, fast |
+| LLM | `rig-core` | Multi-provider abstraction |
+
+## Performance Considerations
+
+### Caching
+
+- **Query Cache**: REASON queries are cached by query + table
+- **LLM Responses**: Summaries stored with nodes (no re-generation)
+- **Index**: BM25 index for fast keyword search
+
+### Parallelism
+
+- **Beam Search**: Multiple branches explored concurrently
+- **Ingestion**: Async I/O for file processing
+- **Tokio Runtime**: Multi-threaded async execution
+
+### Storage Efficiency
+
+- **Binary Encoding**: `bincode` for compact storage
+- **Incremental Updates**: Only modified nodes written
+- **ACID Transactions**: Consistent state on crashes
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="code" href="/api-reference/introduction">
+    Explore the full REST API
+  </Card>
+  <Card title="Core Concepts" icon="book-open" href="/concepts">
+    Understand the data model
+  </Card>
+</CardGroup>

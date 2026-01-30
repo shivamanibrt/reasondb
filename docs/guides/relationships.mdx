@@ -1,0 +1,276 @@
+---
+title: Document Relationships
+description: Link related documents with citations, references, and follow-ups
+---
+
+Document relationships in ReasonDB allow you to create meaningful connections between documents. This enables graph-like navigation without vector embeddings, staying true to the reasoning-native philosophy.
+
+## Why Use Relationships?
+
+- **Citations & References**: Track which documents reference others
+- **Document Versions**: Link superseded documents to their replacements
+- **Hierarchical Organization**: Create parent-child relationships
+- **Follow-ups**: Connect original documents to amendments or updates
+
+## Relationship Types
+
+ReasonDB supports several built-in relationship types:
+
+| Type | Inverse | Description |
+|------|---------|-------------|
+| `references` | `referenced_by` | Document A cites/references Document B |
+| `follows_up` | `followed_up_by` | Document A is a follow-up to Document B |
+| `supersedes` | `superseded_by` | Document A replaces Document B |
+| `parent_of` | `child_of` | Hierarchical parent-child relationship |
+| `related_to` | `related_to` | General symmetric relationship |
+
+<Note>
+When you create a non-symmetric relationship (e.g., `references`), ReasonDB automatically creates the inverse relationship (`referenced_by`) on the target document.
+</Note>
+
+## Creating Relationships
+
+```bash
+curl -X POST http://localhost:4444/v1/relations \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from_document_id": "doc_nda_v1",
+    "to_document_id": "doc_nda_v2",
+    "relation_type": "superseded_by",
+    "note": "Version 2 includes updated confidentiality terms"
+  }'
+```
+
+Response:
+```json
+{
+  "id": "rel_abc123",
+  "from_document_id": "doc_nda_v1",
+  "to_document_id": "doc_nda_v2",
+  "relation_type": "superseded_by",
+  "note": "Version 2 includes updated confidentiality terms",
+  "metadata": {},
+  "created_at": "2026-01-27T10:00:00Z"
+}
+```
+
+## Relationship Schema
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `from_document_id` | string | Source document ID (required) |
+| `to_document_id` | string | Target document ID (required) |
+| `relation_type` | string | Type of relationship (required) |
+| `note` | string | Optional description |
+| `metadata` | object | Custom key-value metadata |
+
+## Getting Document Relations
+
+### All Relations for a Document
+
+```bash
+curl http://localhost:4444/v1/documents/{id}/relations
+```
+
+Response:
+```json
+{
+  "relations": [
+    {
+      "id": "rel_abc123",
+      "from_document_id": "doc_contract",
+      "to_document_id": "doc_amendment",
+      "relation_type": "references",
+      "note": "Amendment to Section 5"
+    },
+    {
+      "id": "rel_def456",
+      "from_document_id": "doc_policy",
+      "to_document_id": "doc_contract",
+      "relation_type": "referenced_by",
+      "note": null
+    }
+  ],
+  "total": 2
+}
+```
+
+### Related Document IDs
+
+```bash
+curl http://localhost:4444/v1/documents/{id}/related
+```
+
+Response:
+```json
+{
+  "document_ids": ["doc_amendment", "doc_policy"],
+  "total": 2
+}
+```
+
+### Check if Documents are Related
+
+```bash
+curl http://localhost:4444/v1/documents/{id}/related-to/{other_id}
+```
+
+Response:
+```json
+true
+```
+
+## Querying with RQL
+
+### Find Related Documents
+
+Use the `RELATED TO` clause to find documents related to a specific document:
+
+```sql
+SELECT * FROM contracts RELATED TO 'doc_abc123'
+```
+
+This returns all documents that have any relationship with `doc_abc123`.
+
+### Filter by Relationship Type
+
+Specify the relationship type with `AS`:
+
+```sql
+SELECT * FROM contracts RELATED TO 'doc_abc123' AS references
+```
+
+This returns only documents that the source document references.
+
+### Shorthand Syntax
+
+Use relationship keywords directly:
+
+```sql
+-- Documents that reference this one
+SELECT * FROM contracts REFERENCES 'doc_abc123'
+
+-- Documents superseded by this one
+SELECT * FROM contracts SUPERSEDES 'doc_old'
+
+-- Documents that are children of this one
+SELECT * FROM docs PARENT_OF 'doc_section'
+```
+
+### Combined Queries
+
+Combine with other RQL clauses:
+
+```sql
+SELECT * FROM legal
+WHERE author = 'Legal Team'
+RELATED TO 'doc_master_agreement'
+SEARCH 'payment terms'
+LIMIT 10
+```
+
+## Relationship Patterns
+
+### Document Versions
+
+Track document versions by linking superseded documents:
+
+```
+doc_v1  ──superseded_by──>  doc_v2  ──superseded_by──>  doc_v3
+```
+
+```sql
+-- Find the latest version of a document
+SELECT * FROM contracts SUPERSEDES 'doc_original' LIMIT 1
+```
+
+### Citation Networks
+
+Build citation networks between research papers or legal documents:
+
+```
+doc_paper_a  ──references──>  doc_paper_b
+                              doc_paper_c  ──references──>  doc_paper_b
+```
+
+```sql
+-- Find all papers that cite a specific paper
+SELECT * FROM research REFERENCED_BY 'doc_seminal_paper'
+```
+
+### Amendment Chains
+
+Link contracts to their amendments:
+
+```bash
+# Create the relationship
+curl -X POST http://localhost:4444/v1/relations \
+  -d '{
+    "from_document_id": "doc_contract",
+    "to_document_id": "doc_amendment_1",
+    "relation_type": "references",
+    "note": "First amendment, dated 2026-01-15"
+  }'
+```
+
+```sql
+-- Find all amendments to a contract
+SELECT * FROM legal RELATED TO 'doc_contract' AS references
+```
+
+## Deleting Relationships
+
+Delete a specific relationship:
+
+```bash
+curl -X DELETE http://localhost:4444/v1/relations/{relation_id}
+```
+
+<Warning>
+When you delete a document, all its relationships are automatically removed.
+</Warning>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Descriptive Notes">
+    Add notes to explain why documents are related:
+    ```json
+    {
+      "note": "Amendment adds new Section 7: Data Protection"
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Choose the Right Relationship Type">
+    - Use `references` for citations and cross-references
+    - Use `supersedes` for document versions
+    - Use `follows_up` for amendments and addendums
+    - Use `parent_of` for hierarchical structures
+    - Use `related_to` when no specific type fits
+  </Accordion>
+  
+  <Accordion title="Store Context in Metadata">
+    Add metadata for additional context:
+    ```json
+    {
+      "metadata": {
+        "section": "5.1",
+        "reason": "Compliance update",
+        "effective_date": "2026-02-01"
+      }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="RQL Guide" icon="code" href="/guides/rql">
+    Learn all RQL query features
+  </Card>
+  <Card title="Tables Guide" icon="table" href="/guides/tables">
+    Organize documents into tables
+  </Card>
+</CardGroup>

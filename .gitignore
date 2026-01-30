@@ -45,3 +45,4 @@ logs/
 
 # Build artifacts
 dist/
+docs/node_modules/

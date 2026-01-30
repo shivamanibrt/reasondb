@@ -1,0 +1,232 @@
+---
+title: Quickstart
+description: Get ReasonDB up and running in 5 minutes
+---
+
+This guide will walk you through installing ReasonDB, configuring your LLM provider, and performing your first LLM-guided search.
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- **Rust 1.70+** installed ([rustup.rs](https://rustup.rs))
+- An **LLM API key** from one of:
+  - Anthropic (recommended)
+  - OpenAI
+  - Google Gemini
+  - Cohere
+
+## Installation
+
+<Steps>
+  <Step title="Clone and build">
+    ```bash
+    git clone https://github.com/reasondb/reasondb.git
+    cd reasondb
+    cargo build --release
+    ```
+  </Step>
+
+  <Step title="Configure your LLM API key">
+    Use the interactive setup wizard:
+
+    ```bash
+    cargo run --bin reasondb -- config init
+    ```
+
+    Or set values directly:
+
+    ```bash
+    # Set your LLM provider
+    cargo run --bin reasondb -- config set llm.provider anthropic
+    cargo run --bin reasondb -- config set llm.api_key sk-ant-xxxxx
+    ```
+
+    <Accordion title="View all available providers">
+      | Provider | Config Value |
+      |----------|-------------|
+      | Anthropic Claude | `anthropic` |
+      | OpenAI GPT-4 | `openai` |
+      | Google Gemini | `gemini` |
+      | Cohere | `cohere` |
+    </Accordion>
+  </Step>
+
+  <Step title="Start the server">
+    ```bash
+    cargo run --bin reasondb -- serve
+    ```
+
+    Output:
+    ```
+      ____                            ____  ____  
+     |  _ \ ___  __ _ ___  ___  _ __ |  _ \| __ ) 
+     | |_) / _ \/ _` / __|/ _ \| '_ \| | | |  _ \ 
+     |  _ <  __/ (_| \__ \ (_) | | | | |_| | |_) |
+     |_| \_\___|\__,_|___/\___/|_| |_|____/|____/ 
+
+    The reasoning-native document database
+
+      Database: data/reasondb.redb
+      Listening: 127.0.0.1:4444
+      Swagger UI: http://127.0.0.1:4444/swagger-ui/
+      LLM: anthropic
+    ```
+
+    <Note>
+    Your API key is stored securely in `~/.config/reasondb/config.toml` - no need to set environment variables every time!
+    </Note>
+  </Step>
+</Steps>
+
+## Your First Document
+
+Now let's ingest a document and search it.
+
+### Step 1: Create a Table
+
+Tables organize your documents into logical collections:
+
+```bash
+curl -X POST http://localhost:4444/v1/tables \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Research",
+    "description": "Research documents and papers"
+  }'
+```
+
+Response:
+```json
+{
+  "id": "tbl_abc123",
+  "name": "Research",
+  "document_count": 0,
+  "total_nodes": 0
+}
+```
+
+<Note>
+Save the `id` from the response - you'll need it for ingestion.
+</Note>
+
+### Step 2: Ingest a Document
+
+Ingest some text content (replace `tbl_abc123` with your table ID):
+
+```bash
+curl -X POST http://localhost:4444/v1/ingest/text \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Machine Learning Basics",
+    "table_id": "tbl_abc123",
+    "content": "# Machine Learning Basics\n\nMachine learning is a subset of artificial intelligence that enables computers to learn from data without being explicitly programmed.\n\n## Types of Learning\n\n### Supervised Learning\nThe algorithm learns from labeled training data. Examples include classification and regression.\n\n### Unsupervised Learning\nThe algorithm finds patterns in unlabeled data. Examples include clustering and dimensionality reduction.\n\n### Reinforcement Learning\nThe algorithm learns by interacting with an environment and receiving rewards or penalties."
+  }'
+```
+
+Response:
+```json
+{
+  "document_id": "doc_xyz789",
+  "title": "Machine Learning Basics",
+  "total_nodes": 5,
+  "max_depth": 2,
+  "stats": {
+    "chars_extracted": 523,
+    "chunks_created": 4,
+    "nodes_created": 5,
+    "summaries_generated": 5,
+    "total_time_ms": 3250
+  }
+}
+```
+
+ReasonDB automatically:
+1. Parses the Markdown structure
+2. Creates a hierarchical tree from headings
+3. Generates LLM summaries for each node
+
+### Step 3: Search with LLM Reasoning
+
+Now search using natural language:
+
+```bash
+curl -X POST http://localhost:4444/v1/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What is supervised learning?"}'
+```
+
+Response:
+```json
+{
+  "results": [{
+    "node_id": "node_abc",
+    "document_id": "doc_xyz789",
+    "content": "### Supervised Learning\nThe algorithm learns from labeled training data...",
+    "answer": "Supervised learning is a type of machine learning where the algorithm learns from labeled training data. Common examples include classification and regression tasks.",
+    "confidence": 0.92
+  }],
+  "stats": {
+    "nodes_visited": 3,
+    "nodes_pruned": 2,
+    "llm_calls": 3,
+    "total_time_ms": 1850
+  }
+}
+```
+
+The LLM navigated the document tree, found the relevant section, and extracted a direct answer.
+
+## Using the CLI
+
+ReasonDB also provides a powerful CLI:
+
+```bash
+# Search documents
+reasondb search "What is supervised learning?"
+
+# Interactive RQL REPL
+reasondb query
+
+# Execute a single query
+reasondb query -q "SELECT * FROM Research SEARCH 'machine learning'"
+
+# List tables
+reasondb tables list
+
+# Check server health
+reasondb health
+
+# View your configuration
+reasondb config list
+```
+
+## View Document Structure
+
+To see how your document was organized:
+
+```bash
+curl http://localhost:4444/v1/documents/doc_xyz789/tree
+```
+
+This returns the full tree structure with all nodes and their summaries.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Core Concepts" icon="book-open" href="/concepts">
+    Learn about trees, nodes, and how reasoning works
+  </Card>
+  <Card title="Configuration" icon="gear" href="/guides/configuration">
+    Detailed configuration options and settings
+  </Card>
+  <Card title="Authentication" icon="key" href="/guides/authentication">
+    Secure your deployment with API keys
+  </Card>
+  <Card title="Search Guide" icon="magnifying-glass" href="/guides/search">
+    Master LLM-guided search
+  </Card>
+  <Card title="RQL Queries" icon="terminal" href="/guides/rql">
+    Use SQL-like queries with SEARCH and REASON
+  </Card>
+</CardGroup>

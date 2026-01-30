@@ -1,0 +1,18 @@
+{
+  "name": "docs",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "devdoc dev",
+    "build": "devdoc build",
+    "start": "devdoc start",
+    "check": "devdoc check",
+    "deploy": "devdoc deploy",
+    "ai": "devdoc ai",
+    "whoami": "devdoc whoami",
+    "upgrade": "npm update @brainfish-ai/devdoc && devdoc --version"
+  },
+  "dependencies": {
+    "@brainfish-ai/devdoc": "latest"
+  }
+}

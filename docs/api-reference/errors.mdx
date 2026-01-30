@@ -1,0 +1,323 @@
+---
+title: Error Handling
+description: Understanding ReasonDB API error responses
+---
+
+The ReasonDB API uses conventional HTTP status codes and returns structured error responses to help you handle failures gracefully.
+
+## HTTP Status Codes
+
+| Code | Description |
+|------|-------------|
+| `200` | Success - Request completed |
+| `201` | Created - Resource created successfully |
+| `400` | Bad Request - Invalid request syntax |
+| `401` | Unauthorized - Missing or invalid API key |
+| `403` | Forbidden - Insufficient permissions |
+| `404` | Not Found - Resource doesn't exist |
+| `422` | Unprocessable Entity - Validation failed |
+| `500` | Internal Server Error - Server-side error |
+| `503` | Service Unavailable - LLM provider error |
+
+## Error Response Format
+
+All errors follow a consistent structure:
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Document not found: doc_xyz789",
+    "details": null
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `code` | string | Machine-readable error code |
+| `message` | string | Human-readable description |
+| `details` | object | Additional context (optional) |
+
+## Error Codes
+
+### UNAUTHORIZED
+
+Authentication required or API key invalid.
+
+```json
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Invalid or missing API key"
+  }
+}
+```
+
+**Causes:**
+- Missing API key in request headers
+- Invalid or expired API key
+- Revoked API key
+
+**Solution:** Include a valid API key in the `Authorization: Bearer <key>` or `X-API-Key: <key>` header.
+
+### FORBIDDEN
+
+Valid authentication but insufficient permissions.
+
+```json
+{
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "Permission denied: requires 'write' permission"
+  }
+}
+```
+
+**Causes:**
+- API key lacks required permission for the endpoint
+- Attempting admin operations with non-admin key
+
+**Solution:** Use an API key with the required permissions. See [Authentication Guide](/guides/authentication) for permission details.
+
+### NOT_FOUND
+
+The requested resource doesn't exist.
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Document not found: doc_abc123"
+  }
+}
+```
+
+**Causes:**
+- Invalid document, table, or node ID
+- Resource was deleted
+
+**Solution:** Verify the ID exists with a list or get request.
+
+### BAD_REQUEST
+
+The request syntax is invalid.
+
+```json
+{
+  "error": {
+    "code": "BAD_REQUEST",
+    "message": "Invalid request: No file provided"
+  }
+}
+```
+
+**Causes:**
+- Missing required fields
+- Invalid JSON
+- File upload missing
+
+**Solution:** Check request body and headers.
+
+### VALIDATION_ERROR
+
+Request data failed validation.
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Title is required"
+  }
+}
+```
+
+**Causes:**
+- Empty required fields
+- Invalid field values
+- Invalid URL format
+
+**Solution:** Review the field requirements in the API documentation.
+
+### STORAGE_ERROR
+
+Database operation failed.
+
+```json
+{
+  "error": {
+    "code": "STORAGE_ERROR",
+    "message": "Failed to save document: disk full"
+  }
+}
+```
+
+**Causes:**
+- Disk full
+- Database corruption
+- Concurrent access conflict
+
+**Solution:** Check disk space and server logs.
+
+### INGESTION_ERROR
+
+Document ingestion failed.
+
+```json
+{
+  "error": {
+    "code": "INGESTION_ERROR",
+    "message": "Failed to parse PDF: unsupported encryption"
+  }
+}
+```
+
+**Causes:**
+- Unsupported file format
+- Corrupted file
+- Password-protected document
+- URL unreachable
+
+**Solution:** Verify the file is valid and supported.
+
+### SEARCH_ERROR
+
+Search operation failed.
+
+```json
+{
+  "error": {
+    "code": "SEARCH_ERROR",
+    "message": "Search failed: no documents in table"
+  }
+}
+```
+
+**Causes:**
+- Empty table
+- Invalid search parameters
+- LLM processing error
+
+**Solution:** Ensure documents exist and parameters are valid.
+
+### LLM_ERROR
+
+LLM provider returned an error.
+
+```json
+{
+  "error": {
+    "code": "LLM_ERROR",
+    "message": "LLM API error: rate limit exceeded"
+  }
+}
+```
+
+**Causes:**
+- Invalid API key
+- Rate limit exceeded
+- Provider outage
+- Network error
+
+**Solution:** Check API key and provider status.
+
+### INTERNAL_ERROR
+
+Unexpected server error.
+
+```json
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Internal server error: unexpected state"
+  }
+}
+```
+
+**Causes:**
+- Bug in server code
+- Unexpected condition
+
+**Solution:** Check server logs and report the issue.
+
+## Error Handling Examples
+
+### cURL
+
+```bash
+response=$(curl -s -w "\n%{http_code}" -X GET http://localhost:4444/v1/documents/invalid)
+body=$(echo "$response" | head -n -1)
+status=$(echo "$response" | tail -n 1)
+
+if [ "$status" -ne 200 ]; then
+  echo "Error $status: $(echo $body | jq -r '.error.message')"
+fi
+```
+
+### Python
+
+```python
+import requests
+
+response = requests.get("http://localhost:4444/v1/documents/invalid")
+
+if not response.ok:
+    error = response.json()["error"]
+    print(f"Error {error['code']}: {error['message']}")
+else:
+    data = response.json()
+```
+
+### JavaScript
+
+```javascript
+const response = await fetch("http://localhost:4444/v1/documents/invalid");
+
+if (!response.ok) {
+  const { error } = await response.json();
+  throw new Error(`${error.code}: ${error.message}`);
+}
+
+const data = await response.json();
+```
+
+## Retry Strategy
+
+For transient errors (503, LLM_ERROR), implement exponential backoff:
+
+```python
+import time
+import requests
+
+def request_with_retry(url, max_retries=3):
+    for attempt in range(max_retries):
+        response = requests.get(url)
+
+        if response.status_code == 503:
+            wait = 2 ** attempt  # 1s, 2s, 4s
+            time.sleep(wait)
+            continue
+
+        return response
+
+    raise Exception("Max retries exceeded")
+```
+
+## Debugging Tips
+
+1. **Check the error code** - Use the machine-readable `code` field for programmatic handling
+2. **Read the message** - The human-readable message often explains the cause
+3. **Check server logs** - For 500 errors, server logs contain stack traces
+4. **Verify resources exist** - Use list endpoints to confirm IDs
+5. **Test with Swagger UI** - Interactive testing helps isolate issues
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Introduction" icon="book-open" href="/api-reference/introduction">
+    API overview and patterns
+  </Card>
+  <Card title="Configuration" icon="gear" href="/guides/configuration">
+    Server configuration
+  </Card>
+</CardGroup>

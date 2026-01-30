@@ -1,0 +1,62 @@
+---
+description: Rules for migrating documentation from other platforms to DevDoc
+globs: ["**/mint.json", "**/docusaurus.config.js", "**/SUMMARY.md", "**/mkdocs.yml", "**/*.graphql", "**/openapi.*", "**/swagger.*"]
+---
+
+# Documentation Migration Rules
+
+When asked to migrate documentation:
+
+## Platform Detection
+
+Check for these files to identify source platform:
+- mint.json → Mintlify
+- docusaurus.config.js → Docusaurus
+- SUMMARY.md → GitBook
+- mkdocs.yml → MkDocs
+- .vuepress/ → VuePress
+
+## Migration Priorities
+
+1. Configuration files first (navigation structure)
+2. Content files (preserve as much as possible)
+3. Assets (images, logos)
+4. API specs (copy and configure)
+
+## Component Conversion
+
+Always convert platform-specific components to DevDoc equivalents:
+
+### Mintlify
+- `<CodeGroup>` → `<Tabs>` with code blocks
+- `<Frame>` → `<img>` or remove wrapper
+- `<ResponseField>` → Markdown table
+- `<ParamField>` → Markdown table
+
+### Docusaurus
+- `:::note` → `<Note>`
+- `:::tip` → `<Tip>`
+- `:::info` → `<Info>`
+- `:::caution` → `<Warning>`
+- `:::danger` → `<Warning>`
+- `<TabItem>` → `<Tab>`
+
+### GitBook
+- `{% hint style="info" %}` → `<Info>`
+- `{% hint style="warning" %}` → `<Warning>`
+- `{% hint style="success" %}` → `<Tip>`
+- `{% tabs %}` → `<Tabs>`
+
+## Preserve Content
+
+- Keep all prose and explanations
+- Maintain heading hierarchy
+- Preserve code examples exactly
+- Keep frontmatter metadata
+
+## Post-Migration
+
+- Validate all internal links
+- Check component rendering
+- Verify navigation order
+- Test API playground if applicable

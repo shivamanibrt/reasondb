@@ -1,0 +1,350 @@
+---
+title: "Tutorial: Legal Document Search"
+description: Build an intelligent contract analysis system with ReasonDB
+---
+
+In this tutorial, you'll build a legal document search system that can analyze contracts, extract specific clauses, and answer complex legal questions using LLM reasoning.
+
+## What You'll Build
+
+A contract analysis system that can:
+- Search across multiple contracts by keywords
+- Filter by contract type, date, and parties
+- Extract specific clauses (termination, liability, payment)
+- Answer natural language questions about obligations
+
+## How It Works
+
+<Mermaid>
+{`flowchart LR
+    subgraph Ingest
+        NDA[NDA Contract]
+        MSA[Service Agreement]
+        EMP[Employment Contract]
+    end
+
+    subgraph ReasonDB
+        Table[(contracts table)]
+        Tree[Document Trees]
+        Index[Search Index]
+    end
+
+    subgraph Query
+        Filter[Filter by Type]
+        Search[Keyword Search]
+        Reason[LLM Reasoning]
+    end
+
+    subgraph Output
+        Clauses[Extract Clauses]
+        Answers[Answer Questions]
+    end
+
+    NDA --> Table
+    MSA --> Table
+    EMP --> Table
+    Table --> Tree
+    Table --> Index
+    Tree --> Filter
+    Index --> Search
+    Filter --> Reason
+    Search --> Reason
+    Reason --> Clauses
+    Reason --> Answers`}
+</Mermaid>
+
+1. **Ingest contracts** - Store NDAs, service agreements, and employment contracts
+2. **Build searchable index** - ReasonDB creates tree structures and search indexes
+3. **Query with filters** - Filter by contract type, then search or reason
+4. **Extract insights** - LLM extracts specific clauses and answers questions
+
+## Prerequisites
+
+- ReasonDB running locally
+- An LLM API key configured
+- Basic familiarity with RQL (see [RQL Tutorial](/tutorials/rql-basics))
+
+## Step 1: Create the Legal Table
+
+<Steps>
+  <Step title="Create a table for contracts">
+    ```bash
+    curl -X POST http://localhost:4444/v1/tables \
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "contracts",
+        "description": "Legal contracts and agreements",
+        "metadata": {
+          "department": "legal",
+          "retention_years": 7
+        }
+      }'
+    ```
+
+    Save the returned table ID.
+  </Step>
+</Steps>
+
+## Step 2: Ingest Sample Contracts
+
+Let's add three different contract types. Replace `TABLE_ID` with your table ID:
+
+### NDA Agreement
+
+```bash
+curl -X POST http://localhost:4444/v1/ingest/text \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "NDA - Acme Corp & Beta Inc",
+    "table_id": "TABLE_ID",
+    "content": "# Non-Disclosure Agreement\n\n**Effective Date:** January 15, 2024\n\n**Parties:**\n- Acme Corporation (\"Disclosing Party\")\n- Beta Inc (\"Receiving Party\")\n\n## 1. Definition of Confidential Information\n\nConfidential Information includes all non-public information disclosed by the Disclosing Party, including but not limited to: trade secrets, business plans, customer lists, financial data, and technical specifications.\n\n## 2. Obligations of Receiving Party\n\nThe Receiving Party agrees to:\n- Hold all Confidential Information in strict confidence\n- Not disclose to any third party without prior written consent\n- Use Confidential Information only for the permitted purpose\n- Return or destroy all materials upon request\n\n## 3. Exclusions\n\nConfidential Information does not include information that:\n- Is publicly available through no fault of Receiving Party\n- Was known to Receiving Party prior to disclosure\n- Is independently developed without use of Confidential Information\n\n## 4. Term and Termination\n\nThis Agreement shall remain in effect for three (3) years from the Effective Date. Either party may terminate with 30 days written notice. Confidentiality obligations survive termination for five (5) years.\n\n## 5. Remedies\n\nThe Receiving Party acknowledges that breach may cause irreparable harm. The Disclosing Party shall be entitled to seek injunctive relief in addition to any other remedies.",
+    "tags": ["nda", "confidentiality", "active"],
+    "author": "Legal Team",
+    "metadata": {
+      "contract_type": "nda",
+      "parties": ["Acme Corp", "Beta Inc"],
+      "effective_date": "2024-01-15",
+      "value_usd": 0,
+      "status": "active"
+    }
+  }'
+```
+
+### Service Agreement
+
+```bash
+curl -X POST http://localhost:4444/v1/ingest/text \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Master Service Agreement - Acme Corp & CloudTech",
+    "table_id": "TABLE_ID",
+    "content": "# Master Service Agreement\n\n**Effective Date:** March 1, 2024\n\n**Parties:**\n- Acme Corporation (\"Client\")\n- CloudTech Solutions (\"Provider\")\n\n## 1. Services\n\nProvider agrees to provide cloud infrastructure services as detailed in Exhibit A, including:\n- Managed Kubernetes hosting\n- Database administration\n- 24/7 monitoring and support\n\n## 2. Service Levels\n\n### 2.1 Availability\nProvider guarantees 99.9% uptime measured monthly. Downtime excludes scheduled maintenance.\n\n### 2.2 Response Times\n- Critical issues: 15 minutes\n- High priority: 1 hour\n- Normal priority: 4 hours\n\n### 2.3 Credits\nFor each 0.1% below 99.9% uptime, Client receives 5% credit on monthly fee.\n\n## 3. Payment Terms\n\n### 3.1 Fees\nClient shall pay $15,000 per month, due within 30 days of invoice.\n\n### 3.2 Late Payment\nLate payments accrue interest at 1.5% per month.\n\n## 4. Liability\n\n### 4.1 Limitation\nProvider total liability shall not exceed fees paid in the preceding 12 months.\n\n### 4.2 Exclusions\nNeither party liable for indirect, consequential, or punitive damages.\n\n## 5. Termination\n\n### 5.1 For Convenience\nEither party may terminate with 90 days written notice.\n\n### 5.2 For Cause\nImmediate termination for material breach not cured within 30 days.\n\n### 5.3 Effect of Termination\nProvider will assist with data migration for 30 days post-termination.",
+    "tags": ["msa", "services", "cloud", "active"],
+    "author": "Legal Team",
+    "metadata": {
+      "contract_type": "msa",
+      "parties": ["Acme Corp", "CloudTech Solutions"],
+      "effective_date": "2024-03-01",
+      "value_usd": 180000,
+      "status": "active"
+    }
+  }'
+```
+
+### Employment Agreement
+
+```bash
+curl -X POST http://localhost:4444/v1/ingest/text \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Employment Agreement - Sarah Chen",
+    "table_id": "TABLE_ID",
+    "content": "# Employment Agreement\n\n**Effective Date:** February 1, 2024\n\n**Parties:**\n- Acme Corporation (\"Company\")\n- Sarah Chen (\"Employee\")\n\n## 1. Position and Duties\n\nEmployee is hired as Senior Software Engineer, reporting to the VP of Engineering. Duties include software development, code review, and mentoring junior engineers.\n\n## 2. Compensation\n\n### 2.1 Base Salary\nAnnual salary of $175,000, paid bi-weekly.\n\n### 2.2 Bonus\nEligible for annual bonus up to 15% of base salary based on performance.\n\n### 2.3 Equity\n10,000 stock options vesting over 4 years with 1-year cliff.\n\n## 3. Benefits\n\n- Health, dental, and vision insurance\n- 401(k) with 4% company match\n- 20 days paid time off\n- Remote work flexibility\n\n## 4. Confidentiality\n\nEmployee agrees to maintain confidentiality of all proprietary information during and after employment.\n\n## 5. Intellectual Property\n\nAll work product created during employment belongs to the Company.\n\n## 6. Termination\n\n### 6.1 At-Will Employment\nEither party may terminate at any time with or without cause.\n\n### 6.2 Severance\nIf terminated without cause, Employee receives 3 months salary as severance.\n\n## 7. Non-Compete\n\nEmployee agrees not to work for direct competitors for 12 months after termination within 50-mile radius.",
+    "tags": ["employment", "hr", "active"],
+    "author": "HR Department",
+    "metadata": {
+      "contract_type": "employment",
+      "parties": ["Acme Corp", "Sarah Chen"],
+      "effective_date": "2024-02-01",
+      "value_usd": 175000,
+      "status": "active"
+    }
+  }'
+```
+
+## Step 3: Basic Contract Queries
+
+### List All Contracts
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT title, metadata.contract_type, metadata.value_usd FROM contracts"}'
+```
+
+### Filter by Contract Type
+
+```bash
+# Find all NDAs
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM contracts WHERE metadata.contract_type = '\''nda'\''"}'
+```
+
+### Filter by Value
+
+```bash
+# High-value contracts (> $100k)
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT title, metadata.value_usd FROM contracts WHERE metadata.value_usd > 100000"}'
+```
+
+## Step 4: Keyword Search
+
+Search for specific terms across all contracts:
+
+```bash
+# Find contracts mentioning "termination"
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM contracts SEARCH '\''termination notice'\''"}'
+```
+
+```bash
+# Find contracts about "confidential information"
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM contracts SEARCH '\''confidential information disclosure'\''"}'
+```
+
+## Step 5: Intelligent Legal Questions
+
+Now let's use REASON for complex legal questions:
+
+### Extract Termination Clauses
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM contracts REASON '\''What are the termination notice periods for each contract?'\''"}'
+```
+
+**Response:**
+```json
+{
+  "documents": [
+    {
+      "title": "NDA - Acme Corp & Beta Inc",
+      "answer": "The NDA can be terminated by either party with 30 days written notice.",
+      "confidence": 0.94
+    },
+    {
+      "title": "Master Service Agreement - Acme Corp & CloudTech",
+      "answer": "The MSA requires 90 days written notice for termination for convenience, or immediate termination for material breach not cured within 30 days.",
+      "confidence": 0.92
+    },
+    {
+      "title": "Employment Agreement - Sarah Chen",
+      "answer": "The employment is at-will, meaning either party can terminate at any time without notice.",
+      "confidence": 0.89
+    }
+  ]
+}
+```
+
+### Understand Liability Limits
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM contracts WHERE metadata.contract_type = '\''msa'\'' REASON '\''What are the liability limitations and caps?'\''"}'
+```
+
+### Find Confidentiality Obligations
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM contracts REASON '\''What are our confidentiality obligations and how long do they last?'\''"}'
+```
+
+### Compare Payment Terms
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM contracts REASON '\''What are the payment terms and what happens if payment is late?'\''"}'
+```
+
+## Step 6: Advanced Analysis
+
+### Contract Portfolio Summary
+
+```bash
+# Count contracts by type
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT COUNT(*) AS count, metadata.contract_type FROM contracts GROUP BY metadata.contract_type"}'
+```
+
+### Total Contract Value
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT SUM(metadata.value_usd) AS total_value FROM contracts"}'
+```
+
+### Combined Filter + Reason
+
+Find specific contract types and extract key terms:
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM contracts WHERE tags CONTAINS '\''active'\'' AND metadata.value_usd > 0 REASON '\''What are our key financial obligations?'\''"}'
+```
+
+## Step 7: Building a Contract Review Workflow
+
+Here's a complete workflow for reviewing a new contract:
+
+```bash
+# 1. Check for similar existing contracts
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT title, metadata.contract_type FROM contracts WHERE metadata.contract_type = '\''msa'\''"}'
+
+# 2. Search for relevant precedents
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM contracts SEARCH '\''service level agreement uptime'\''"}'
+
+# 3. Compare liability clauses
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM contracts WHERE metadata.contract_type = '\''msa'\'' REASON '\''What liability caps and limitations have we agreed to in the past?'\''"}'
+
+# 4. Check standard termination terms
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM contracts REASON '\''What termination provisions are standard in our contracts?'\''"}'
+```
+
+## Challenges
+
+<AccordionGroup>
+  <Accordion title="Challenge 1: Find contracts expiring soon">
+    Find all contracts and ask when they expire or renew:
+    ```bash
+    curl -X POST http://localhost:4444/v1/query \
+      -d '{"query": "SELECT * FROM contracts REASON '\''When does each contract expire or come up for renewal?'\''"}'
+    ```
+  </Accordion>
+
+  <Accordion title="Challenge 2: Compare non-compete clauses">
+    Extract and compare non-compete terms:
+    ```bash
+    curl -X POST http://localhost:4444/v1/query \
+      -d '{"query": "SELECT * FROM contracts REASON '\''What non-compete or non-solicitation clauses exist and what are their terms?'\''"}'
+    ```
+  </Accordion>
+
+  <Accordion title="Challenge 3: Identify high-risk clauses">
+    Ask the LLM to identify potentially risky terms:
+    ```bash
+    curl -X POST http://localhost:4444/v1/query \
+      -d '{"query": "SELECT * FROM contracts REASON '\''What clauses might be considered high-risk or unfavorable to Acme Corp?'\''"}'
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<Tip>
+**Organize by contract type**: Use metadata.contract_type to quickly filter contracts before applying expensive REASON queries.
+</Tip>
+
+<Note>
+**Tag active vs archived**: Use tags like "active" and "archived" to exclude old contracts from searches.
+</Note>
+
+<Warning>
+**Confidentiality**: Ensure your ReasonDB instance is properly secured when storing sensitive legal documents.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Knowledge Base Q&A" icon="circle-question" href="/tutorials/knowledge-base">
+    Build a Q&A system with ReasonDB
+  </Card>
+  <Card title="Tables Guide" icon="table" href="/guides/tables">
+    Learn more about organizing documents
+  </Card>
+</CardGroup>

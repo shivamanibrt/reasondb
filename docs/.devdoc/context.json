@@ -1,0 +1,95 @@
+{
+  "$schema": "https://devdoc.sh/schemas/context.json",
+  "version": "1.0",
+  "lastUpdated": "2026-01-27T00:00:00Z",
+  "product": {
+    "name": "ReasonDB",
+    "description": "A reasoning-native database for AI agent workflows with LLM-guided tree traversal",
+    "type": "database",
+    "domain": "AI/ML Infrastructure",
+    "targetAudience": "External developers integrating ReasonDB into AI applications",
+    "keyFeatures": [
+      "Hierarchical document storage (trees, not chunks)",
+      "LLM-guided retrieval with beam search",
+      "RQL query language with SEARCH and REASON clauses",
+      "Multi-provider LLM support (Anthropic, OpenAI, Gemini, Cohere)",
+      "REST API with OpenAPI documentation"
+    ]
+  },
+  "terminology": {
+    "glossary": {
+      "node": "A single unit in the document tree, containing content and an LLM-generated summary",
+      "tree": "The hierarchical structure of a document, with nodes as branches and leaves",
+      "beam search": "The parallel exploration algorithm used for tree traversal",
+      "RQL": "ReasonDB Query Language - SQL-like syntax with SEARCH and REASON clauses",
+      "SEARCH clause": "BM25 full-text keyword search in RQL",
+      "REASON clause": "LLM semantic search with answer extraction in RQL",
+      "table": "A collection that organizes documents into logical groups"
+    },
+    "avoidTerms": ["vector database", "embeddings", "RAG"],
+    "brandNames": {
+      "ReasonDB": "Always capitalize as ReasonDB",
+      "RQL": "Always uppercase"
+    }
+  },
+  "api": {
+    "style": "REST",
+    "baseUrl": "http://localhost:4444",
+    "authentication": {
+      "type": "none",
+      "headerName": "",
+      "description": "No authentication required for local development"
+    },
+    "conventions": {
+      "pagination": "LIMIT and OFFSET in RQL queries",
+      "errorFormat": "{\"error\": {\"code\": \"ERROR_CODE\", \"message\": \"Human-readable message\"}}",
+      "dateFormat": "ISO 8601 (RFC 3339)",
+      "idFormat": "Prefixed IDs: tbl_, doc_, node_"
+    },
+    "commonPatterns": [
+      "Create table before ingesting documents",
+      "Use table_id in all ingestion requests",
+      "Use /search for LLM reasoning, /query for filtering"
+    ]
+  },
+  "codebase": {
+    "language": "Rust",
+    "framework": "axum",
+    "sourceLocation": "../crates/",
+    "keyDirectories": {
+      "core": "crates/reasondb-core/ - Core library (models, storage, LLM engine)",
+      "ingest": "crates/reasondb-ingest/ - Document ingestion pipeline",
+      "server": "crates/reasondb-server/ - HTTP API server"
+    },
+    "namingConventions": {
+      "files": "snake_case",
+      "functions": "snake_case",
+      "classes": "PascalCase (structs)",
+      "variables": "snake_case"
+    }
+  },
+  "documentation": {
+    "voice": "Professional, technical, direct",
+    "perspective": "second-person",
+    "codeExamples": {
+      "primaryLanguage": "bash/curl",
+      "additionalLanguages": ["python", "javascript"],
+      "style": "Practical, working examples with realistic data"
+    },
+    "templates": {
+      "guide": ".devdoc/templates/guide.md",
+      "apiReference": ".devdoc/templates/api-reference.md",
+      "tutorial": ".devdoc/templates/tutorial.md",
+      "quickstart": ".devdoc/templates/quickstart.md",
+      "troubleshooting": ".devdoc/templates/troubleshooting.md"
+    }
+  },
+  "learned": {
+    "insights": [
+      "ReasonDB differentiates from vector DBs by using LLM reasoning instead of embeddings",
+      "Documents must be assigned to tables during ingestion (table_id required)",
+      "SEARCH clause uses BM25 for fast keyword matching, REASON uses LLM for semantic understanding"
+    ],
+    "corrections": []
+  }
+}

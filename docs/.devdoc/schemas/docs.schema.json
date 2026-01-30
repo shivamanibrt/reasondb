@@ -1,0 +1,123 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://devdoc.sh/docs.json",
+  "title": "DevDoc Configuration Schema",
+  "description": "Schema for docs.json - the main configuration file for DevDoc documentation",
+  "type": "object",
+  "required": ["name", "navigation"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Schema reference URL",
+      "default": "https://devdoc.sh/docs.json"
+    },
+    "name": {
+      "type": "string",
+      "description": "Documentation site name",
+      "examples": ["My Documentation", "Acme API Docs"]
+    },
+    "docType": {
+      "type": "string",
+      "enum": ["internal", "api", "product"],
+      "description": "Documentation type for AI agents"
+    },
+    "favicon": {
+      "type": "string",
+      "description": "Path to favicon file",
+      "examples": ["/favicon.svg", "/assets/favicon.ico"]
+    },
+    "notice": {
+      "type": "object",
+      "description": "Announcement banner at top of docs",
+      "properties": {
+        "content": { "type": "string" },
+        "dismissible": { "type": "boolean", "default": true }
+      },
+      "required": ["content"]
+    },
+    "navigation": {
+      "type": "object",
+      "required": ["tabs"],
+      "properties": {
+        "tabs": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/tab" }
+        },
+        "global": {
+          "type": "object",
+          "properties": {
+            "anchors": {
+              "type": "array",
+              "items": { "$ref": "#/definitions/anchor" }
+            }
+          }
+        }
+      }
+    },
+    "openapi": { "type": "string" },
+    "api": {
+      "type": "object",
+      "properties": {
+        "baseUrl": { "type": "string" },
+        "playground": {
+          "type": "object",
+          "properties": {
+            "mode": { "type": "string", "enum": ["show", "hide"] }
+          }
+        }
+      }
+    },
+    "seo": {
+      "type": "object",
+      "properties": {
+        "indexing": { "type": "string", "enum": ["navigation", "all", "none"] },
+        "metatags": { "type": "object" }
+      }
+    },
+    "redirects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source", "destination"],
+        "properties": {
+          "source": { "type": "string" },
+          "destination": { "type": "string" }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "tab": {
+      "type": "object",
+      "required": ["tab"],
+      "properties": {
+        "tab": { "type": "string", "examples": ["Guides", "API Reference", "Changelog"] },
+        "type": { "type": "string", "enum": ["docs", "openapi", "graphql", "changelog"], "default": "docs" },
+        "path": { "type": "string" },
+        "groups": { "type": "array", "items": { "$ref": "#/definitions/group" } },
+        "versions": { "type": "array" },
+        "spec": { "type": "string" },
+        "schema": { "type": "string" },
+        "endpoint": { "type": "string" }
+      }
+    },
+    "group": {
+      "type": "object",
+      "required": ["group", "pages"],
+      "properties": {
+        "group": { "type": "string" },
+        "icon": { "type": "string", "examples": ["rocket-launch", "book-open", "code", "gear", "terminal", "star", "shield", "user"] },
+        "pages": { "type": "array" }
+      }
+    },
+    "anchor": {
+      "type": "object",
+      "required": ["anchor", "href"],
+      "properties": {
+        "anchor": { "type": "string" },
+        "href": { "type": "string" },
+        "icon": { "type": "string", "examples": ["github-logo", "discord-logo", "twitter-logo"] }
+      }
+    }
+  }
+}

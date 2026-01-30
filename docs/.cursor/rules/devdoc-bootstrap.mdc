@@ -1,0 +1,444 @@
+---
+description: Expert documentation bootstrap using Diátaxis framework and audience-driven planning
+globs: ["**/README.md", "**/package.json", "**/src/**", "**/lib/**"]
+---
+
+# Expert Documentation Bootstrap
+
+When bootstrapping documentation, follow the **Documentation Planning Pyramid**:
+
+```
+OVERVIEW  →  STRATEGY  →  IA  →  APPROVAL  →  CONTENT
+```
+
+## Phase 1: Strategy (WHY & WHO)
+
+### Step 1: Project Overview (Quick Scan)
+
+**Get a quick understanding using git:**
+
+```bash
+git ls-files                                    # List all files
+git ls-files | cut -d'/' -f1 | sort -u         # Top-level folders
+git ls-files | grep -E "(README|package\.json|openapi|swagger)"  # Key files
+```
+
+**Generate brief summary (<100 words):**
+
+```
+📁 PROJECT OVERVIEW
+
+Name: [from package.json/README]
+Type: [API/Library/CLI/Web App]
+Language: [TypeScript/Python/Go]
+Framework: [Next.js/Express/FastAPI]
+
+Structure:
+├── src/     → Source code
+├── lib/     → Library
+├── api/     → API routes
+└── tests/   → Tests
+
+Key Files: README.md, package.json, openapi.json
+
+Summary: [One sentence describing what this project does]
+```
+
+**If NO codebase:** "No codebase detected. Creating docs-only project."
+
+**If `.devdoc/context.json` exists:** Read and use existing preferences.
+
+### Step 2: Define Goals & Audience
+
+**Ask strategic questions:**
+
+#### Question 1: Documentation Purpose
+```
+What is the primary goal?
+
+1. **Enable team productivity** - Internal developers
+2. **Onboard new developers** - New team members
+3. **Support API consumers** - External developers
+4. **Guide product users** - End users
+5. **Inform stakeholders** - Architecture/decisions
+```
+
+#### Question 2: Audience & Roles
+```
+Does your product have multiple user roles?
+
+A) **Single audience** - All users have same access
+B) **Multiple roles** - Different users see different features
+   (e.g., Admin/Editor/Viewer, different permission levels)
+```
+
+**If Single (A):**
+```
+1. **Internal Developer** → Code flow, architecture
+2. **External Developer** → Quick start, auth, examples
+3. **Product User** → Tutorials, feature guides
+4. **Content Author** → MDX syntax, structure
+```
+
+**If Multi-role (B):**
+```
+Define your roles:
+┌─────────────────┬────────────────────────────┐
+│ Role            │ Features/Permissions       │
+├─────────────────┼────────────────────────────┤
+│ Admin           │ All features, user mgmt    │
+│ Editor          │ Create/edit content        │
+│ Viewer          │ Read-only access           │
+│ Developer       │ API access, webhooks       │
+└─────────────────┴────────────────────────────┘
+
+How to organize role-specific content?
+1. **Separate sections** - admin/, users/, developers/
+2. **Inline badges** - <RoleBadge roles={["admin"]}>
+3. **Hybrid** - Both approaches
+```
+
+#### Question 3: Documentation Domain
+```
+1. **API Docs** - Voice: Professional, code-focused
+2. **Product Docs** - Voice: Friendly, approachable
+3. **Internal Docs** - Voice: Technical, direct
+```
+
+#### Question 4: API Type (if API Docs)
+```
+1. **OpenAPI/REST** - Have spec file
+2. **GraphQL** - Have schema
+3. **Both** - REST and GraphQL
+4. **Manual** - No spec file
+```
+
+#### Question 5: Code Examples Language
+```
+TypeScript, Python, curl, Go, etc.
+```
+
+---
+
+## Phase 2: Information Architecture (WHAT)
+
+### Step 3: Import API Specs (if applicable)
+
+**OpenAPI:** Search for `openapi.json`, `swagger.json`
+**GraphQL:** Search for `schema.graphql`
+
+1. Copy spec to `api-reference/`
+2. Validate format
+3. Extract metadata
+
+### Step 4: Plan Content Using Diátaxis Framework
+
+| Type | Purpose | Examples |
+|------|---------|----------|
+| **Tutorial** | Learning-oriented | "Build Your First..." |
+| **How-To** | Task-oriented | "Add Custom Domain" |
+| **Reference** | Information lookup | CLI flags, Config |
+| **Explanation** | Understanding | Architecture, Concepts |
+
+**Structure by Domain:**
+
+#### API Docs
+```
+docs/
+├── index.mdx           # [explanation]
+├── quickstart.mdx      # [tutorial]
+├── authentication.mdx  # [how-to]
+├── guides/             # [explanation/how-to]
+└── api-reference/      # [reference]
+```
+
+#### Product Docs
+```
+docs/
+├── index.mdx           # [explanation]
+├── getting-started/    # [tutorial]
+├── features/           # [how-to]
+└── troubleshooting/    # [how-to]
+```
+
+#### Internal Docs
+```
+docs/
+├── index.mdx           # [explanation]
+├── getting-started/    # [how-to]
+├── architecture/       # [explanation]
+├── development/        # [how-to]
+└── contributing.mdx    # [how-to]
+```
+
+---
+
+## Phase 3: Approval (REQUIRED)
+
+### Step 5: Present IA for User Approval
+
+**IMPORTANT: Always get user approval before generating.**
+
+```
+📋 PROPOSED DOCUMENTATION ARCHITECTURE
+
+Based on your preferences:
+  - Goal: [selected goal]
+  - Audience: [primary audience]  
+  - Domain: [api/product/internal]
+
+═══════════════════════════════════════════════════
+              NAVIGATION STRUCTURE
+═══════════════════════════════════════════════════
+
+📑 TAB: Guides
+├── 📁 Getting Started
+│   ├── Introduction           # index.mdx [explanation]
+│   ├── Quickstart             # quickstart.mdx [tutorial]
+│   └── Authentication         # authentication.mdx [how-to]
+└── 📁 Core Concepts
+    └── Overview               # guides/overview.mdx [explanation]
+
+📑 TAB: API Reference (OpenAPI)
+└── [Auto-generated from openapi.json]
+
+═══════════════════════════════════════════════════
+                FILE STRUCTURE
+═══════════════════════════════════════════════════
+
+docs/
+├── index.mdx
+├── quickstart.mdx
+├── authentication.mdx
+└── api-reference/openapi.json
+
+═══════════════════════════════════════════════════
+               CONTENT SUMMARY
+═══════════════════════════════════════════════════
+
+📚 Tutorials: 1 page
+📝 How-To Guides: 1 page
+💡 Explanations: 2 pages
+
+Total: 4 pages
+
+═══════════════════════════════════════════════════
+                GAPS ANALYSIS
+═══════════════════════════════════════════════════
+
+⚠️  No troubleshooting guide
+⚠️  No changelog
+
+───────────────────────────────────────────────────
+
+Does this look complete?
+
+1. ✅ **Approve** - Generate with this structure
+2. ✏️  **Modify** - Change pages/navigation
+3. ➕ **Add suggested** - Add missing docs
+4. ❌ **Restart** - Reconsider goals
+```
+
+---
+
+## Phase 4: Content (HOW)
+
+### Step 6: Save Context (After Approval)
+
+Create `.devdoc/context.json`:
+```json
+{
+  "strategy": {
+    "goal": "[goal]",
+    "audience": { "primary": "[type]", "needs": [...] }
+  },
+  "preferences": {
+    "docType": "[api/product/internal]",
+    "codeLanguage": "[language]"
+  },
+  "contentPlan": {
+    "approved": true,
+    "pages": [
+      { "path": "index.mdx", "type": "explanation" },
+      { "path": "quickstart.mdx", "type": "tutorial" }
+    ]
+  }
+}
+```
+
+### Step 7: Generate WITH File Search (CRITICAL)
+
+**Only after user approval in Step 5.**
+
+**For EACH page in the content plan:**
+
+```
+1. SEARCH for relevant files
+   git ls-files | grep -iE "(auth|login|token)"
+   rg -l "authentication" --type ts
+
+2. READ the files found
+   - Extract real signatures, types, examples
+   - Note the source files
+
+3. DETECT feature flags & duplicates
+   rg -l "featureFlag|isEnabled|FF_" --type ts
+   rg "export.*(login|authenticate)" --type ts -l
+   
+   ⚠️ FEATURE FLAG: newAuthFlow
+      OLD vs NEW implementation
+      → Ask user which to document
+   
+   🔄 DUPLICATE: authenticate() in v2/
+      → Ask user how to handle
+
+4. ASSESS if enough info exists
+   ✅ Sufficient → Draft content
+   ⚠️ Partial → Draft with TODOs
+   ❌ Insufficient → Flag and offer options
+
+5. REVIEW DRAFT with user (MANDATORY)
+   ═══════════════════════════════════
+   CONTENT REVIEW: authentication.mdx
+   ═══════════════════════════════════
+   
+   [Show full draft content]
+   
+   NOTICES:
+   ⚠️ Feature flag: newAuthFlow
+   🔄 Duplicate: authenticate() in v2/
+   
+   OPTIONS:
+   1. ✅ Approve - Create file
+   2. ✏️ Edit - Make changes
+   3. 🔄 Switch version - Use flagged version
+   4. ➕ Add duplicate - Include related
+   5. ⏭️ Skip - Don't create
+   
+6. WRITE only after user approves
+```
+
+**Expert Writing Standards:**
+1. **Search before write** - ALWAYS find source files first
+2. **No hallucination** - Only real data from files
+3. **Review with user** - Show draft before creating
+4. **Flag feature flags** - Ask which version
+5. **Flag duplicates** - Let user choose
+6. **Second Person** - "You can configure..."
+7. **Include REAL Examples** - From tests/examples
+8. **Use Mermaid Diagrams** - For architecture, flows, sequences
+
+**Mermaid Diagram Requirements:**
+| Content | Diagram Type |
+|---------|--------------|
+| Architecture | `flowchart TB` |
+| Data flow | `flowchart LR` |
+| API calls | `sequenceDiagram` |
+| State machine | `stateDiagram-v2` |
+| Data models | `erDiagram` |
+
+Example:
+```mermaid
+sequenceDiagram
+    User->>API: Request
+    API->>Service: Process
+    Service-->>API: Response
+    API-->>User: Result
+```
+
+### Step 8: Create docs.json and theme.json
+
+**CRITICAL: Read schema files before creating config files.**
+
+```
+📋 SCHEMA REFERENCES (Read before writing)
+
+1. schemas/docs.schema.json → docs.json structure
+2. schemas/theme.schema.json → theme.json structure
+```
+
+**Review config with user before writing:**
+
+```
+═══════════════════════════════════════════════════
+CONFIG REVIEW: docs.json
+═══════════════════════════════════════════════════
+
+{
+  "$schema": "https://devdoc.sh/docs.json",
+  "name": "[Product Name]",
+  "docType": "[api|product|internal]",
+  "navigation": {
+    "tabs": [
+      { "tab": "Guides", "type": "docs", "groups": [...] },
+      { "tab": "API Reference", "type": "openapi" }
+    ]
+  }
+}
+
+Validated against: schemas/docs.schema.json ✓
+
+OPTIONS:
+1. ✅ Approve
+2. ✏️ Edit
+3. ❌ Cancel
+```
+
+**Quick Reference:**
+- Tab types: `docs`, `openapi`, `graphql`, `changelog`
+- Icons: `rocket-launch`, `book-open`, `code`, `gear`, `terminal`, `star`
+- Colors: indigo (#6366f1), blue (#3b82f6), green (#10b981)
+
+### Step 9: Summary
+
+```
+✅ Documentation Generated!
+
+Strategy:
+  - Goal: [goal]
+  - Audience: [audience]
+  - Domain: [domain]
+
+Content (Diátaxis):
+  - Tutorials: X pages
+  - How-To: X pages
+  - Reference: X pages
+  - Explanations: X pages
+
+Files created:
+  - .devdoc/context.json
+  - docs.json
+  - [mdx files]
+
+Next: `devdoc dev` to preview
+```
+
+---
+
+## Key Principles
+
+| Principle | Description |
+|-----------|-------------|
+| **Project overview first** | Quick git scan to understand structure |
+| **Strategy first** | Goals and audience before structure |
+| **Audience-driven** | Match content to user needs |
+| **Support multi-role** | Handle products with multiple user roles |
+| **Diátaxis types** | Classify every page |
+| **IA approval required** | User confirms before generating |
+| **Search before generate** | ALWAYS search/read files before each page |
+| **No hallucination** | Only use real data from source files |
+| **Review before write** | ALWAYS show draft for user approval |
+| **Flag feature flags** | Detect conditional features, ask which version |
+| **Flag duplicates** | Find similar features, let user choose |
+| **Flag unclear sections** | Offer auto-correct IA if info not found |
+| **Expert writing** | 2nd person, active voice |
+| **Mark unknowns** | Add TODO for review |
+
+## Quality Checklist
+
+- [ ] Title is clear
+- [ ] Intro explains "why"
+- [ ] Content type matches purpose
+- [ ] Code examples included
+- [ ] Links to related docs
+- [ ] Progressive disclosure

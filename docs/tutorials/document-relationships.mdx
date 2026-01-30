@@ -1,0 +1,477 @@
+---
+title: "Tutorial: Contract Management System"
+description: Build a system to track master agreements, amendments, and work orders
+---
+
+In this tutorial, you'll build a legal document management system that tracks contract versions, amendments, and cross-references. By the end, you'll understand how to use document relationships to navigate complex document hierarchies.
+
+## What You'll Build
+
+A system that manages:
+- **Master contracts** with multiple amendments
+- **Version tracking** (v1 → v2 → v3)
+- **Cross-references** between related documents
+- **Audit trails** showing document relationships
+
+## How It Works
+
+<Mermaid>
+{`flowchart TB
+    subgraph MasterAgreement
+        MSA[MSA-2024-001]
+    end
+
+    subgraph Amendments
+        A1[Amendment 1]
+        A2[Amendment 2]
+    end
+
+    subgraph WorkOrders
+        WO1[Work Order 1]
+        WO2[Work Order 2]
+        WO1v2[Work Order 1 v2]
+    end
+
+    subgraph Queries
+        Q1[Find all related docs]
+        Q2[Get current terms]
+        Q3[Track versions]
+    end
+
+    MSA --> A1
+    MSA --> A2
+    MSA --> WO1
+    MSA --> WO2
+    WO1 --> WO1v2
+    A1 --> Q2
+    A2 --> Q2
+    MSA --> Q1
+    WO1 --> Q3
+    WO1v2 --> Q3`}
+</Mermaid>
+
+1. **Create master document** - The MSA is the parent document
+2. **Link amendments** - Amendments reference the parent via `parent_document` metadata
+3. **Track work orders** - Work orders also link to the master agreement
+4. **Version documents** - New versions reference previous versions via `supersedes` metadata
+5. **Query relationships** - Find all related documents, get current terms considering amendments
+
+## Prerequisites
+
+- ReasonDB server running on `localhost:4444`
+- `curl` and `jq` installed for API calls
+
+## Step 1: Create the Tables
+
+First, create tables to organize your documents:
+
+```bash
+# Create a table for contracts
+curl -X POST http://localhost:4444/v1/tables \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Contracts",
+    "description": "Master agreements and amendments",
+    "metadata": {"department": "legal", "retention_years": 7}
+  }'
+
+# Create a table for policies  
+curl -X POST http://localhost:4444/v1/tables \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Policies",
+    "description": "Company policies and procedures",
+    "metadata": {"department": "compliance"}
+  }'
+```
+
+## Step 2: Ingest the Master Contract
+
+Let's create a master services agreement:
+
+```bash
+curl -X POST http://localhost:4444/v1/ingest/text \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Master Services Agreement - Acme Corp",
+    "table_id": "contracts",
+    "tags": ["msa", "acme", "active"],
+    "author": "Legal Team",
+    "metadata": {
+      "client": "Acme Corporation",
+      "effective_date": "2025-01-01",
+      "value_usd": 500000,
+      "version": "1.0"
+    },
+    "content": "# Master Services Agreement\n\n## 1. Services\nProvider agrees to deliver software development services as described in Exhibit A.\n\n## 2. Payment Terms\nClient shall pay Provider within 30 days of invoice receipt. Late payments incur 1.5% monthly interest.\n\n## 3. Confidentiality\nBoth parties agree to maintain confidentiality of proprietary information for 5 years after termination.\n\n## 4. Term\nThis agreement is effective for 24 months from the Effective Date.\n\n## 5. Termination\nEither party may terminate with 90 days written notice."
+  }'
+```
+
+Save the returned `document_id` - we'll call it `MSA_ID`:
+
+```bash
+export MSA_ID="<returned document_id>"
+```
+
+## Step 3: Add an Amendment
+
+Now add an amendment that modifies the payment terms:
+
+```bash
+curl -X POST http://localhost:4444/v1/ingest/text \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Amendment #1 - Payment Terms",
+    "table_id": "contracts",
+    "tags": ["amendment", "acme", "payment"],
+    "author": "Legal Team",
+    "metadata": {
+      "client": "Acme Corporation",
+      "effective_date": "2025-06-01",
+      "amendment_number": 1,
+      "modifies_section": "2"
+    },
+    "content": "# Amendment #1 to Master Services Agreement\n\n## Purpose\nThis amendment modifies Section 2 (Payment Terms) of the Master Services Agreement dated January 1, 2025.\n\n## Amended Terms\nSection 2 is hereby replaced with:\n\nClient shall pay Provider within 45 days of invoice receipt. Late payments incur 2% monthly interest. A 5% early payment discount applies if paid within 10 days."
+  }'
+```
+
+Save as `AMENDMENT1_ID`:
+
+```bash
+export AMENDMENT1_ID="<returned document_id>"
+```
+
+## Step 4: Create the Relationship
+
+Link the amendment to the master contract:
+
+```bash
+curl -X POST http://localhost:4444/v1/relations \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"from_document_id\": \"$MSA_ID\",
+    \"to_document_id\": \"$AMENDMENT1_ID\",
+    \"relation_type\": \"references\",
+    \"note\": \"Amendment #1 modifies Section 2 (Payment Terms)\",
+    \"metadata\": {
+      \"section_modified\": \"2\",
+      \"effective_date\": \"2025-06-01\"
+    }
+  }"
+```
+
+<Note>
+ReasonDB automatically creates the inverse relationship: `AMENDMENT1_ID` now has a `referenced_by` relationship pointing back to `MSA_ID`.
+</Note>
+
+## Step 5: Add More Documents
+
+Let's add a second amendment and a side letter:
+
+```bash
+# Amendment #2 - Extends the term
+curl -X POST http://localhost:4444/v1/ingest/text \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Amendment #2 - Term Extension",
+    "table_id": "contracts",
+    "tags": ["amendment", "acme", "term"],
+    "author": "Legal Team",
+    "metadata": {
+      "client": "Acme Corporation",
+      "effective_date": "2025-12-01",
+      "amendment_number": 2,
+      "modifies_section": "4"
+    },
+    "content": "# Amendment #2 to Master Services Agreement\n\n## Purpose\nThis amendment extends the term of the Master Services Agreement.\n\n## Amended Terms\nSection 4 (Term) is hereby replaced with:\n\nThis agreement is effective for 36 months from the original Effective Date, with automatic annual renewals unless terminated with 90 days notice."
+  }'
+
+export AMENDMENT2_ID="<returned document_id>"
+
+# Create relationship
+curl -X POST http://localhost:4444/v1/relations \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"from_document_id\": \"$MSA_ID\",
+    \"to_document_id\": \"$AMENDMENT2_ID\",
+    \"relation_type\": \"references\",
+    \"note\": \"Amendment #2 modifies Section 4 (Term)\"
+  }"
+```
+
+```bash
+# Side Letter - Special pricing
+curl -X POST http://localhost:4444/v1/ingest/text \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Side Letter - Volume Discount",
+    "table_id": "contracts",
+    "tags": ["side-letter", "acme", "pricing"],
+    "author": "Sales Team",
+    "metadata": {
+      "client": "Acme Corporation",
+      "effective_date": "2025-03-15"
+    },
+    "content": "# Side Letter - Volume Discount Agreement\n\nIn connection with the Master Services Agreement, Provider agrees to the following volume discounts:\n\n- 10% discount for projects over $100,000\n- 15% discount for projects over $250,000\n- 20% discount for projects over $500,000\n\nThis side letter is incorporated by reference into the Master Services Agreement."
+  }'
+
+export SIDELETTER_ID="<returned document_id>"
+
+# Create relationship
+curl -X POST http://localhost:4444/v1/relations \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"from_document_id\": \"$MSA_ID\",
+    \"to_document_id\": \"$SIDELETTER_ID\",
+    \"relation_type\": \"references\",
+    \"note\": \"Volume discount side letter\"
+  }"
+```
+
+## Step 6: Query the Document Graph
+
+Now let's explore the relationships:
+
+### Find All Documents Related to the Master Agreement
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -H "Content-Type: application/json" \
+  -d "{\"query\": \"SELECT * FROM contracts RELATED TO '$MSA_ID'\"}" | jq
+```
+
+**Result**: Returns Amendment #1, Amendment #2, and the Side Letter.
+
+### Get the Complete Contract Package
+
+```bash
+# Get all relations for the master agreement
+curl -s "http://localhost:4444/v1/documents/$MSA_ID/relations" | jq
+```
+
+**Result**:
+```json
+{
+  "relations": [
+    {
+      "id": "rel_...",
+      "from_document_id": "MSA_ID",
+      "to_document_id": "AMENDMENT1_ID",
+      "relation_type": "references",
+      "note": "Amendment #1 modifies Section 2 (Payment Terms)"
+    },
+    {
+      "id": "rel_...",
+      "from_document_id": "MSA_ID",
+      "to_document_id": "AMENDMENT2_ID",
+      "relation_type": "references",
+      "note": "Amendment #2 modifies Section 4 (Term)"
+    },
+    {
+      "id": "rel_...",
+      "from_document_id": "MSA_ID",
+      "to_document_id": "SIDELETTER_ID",
+      "relation_type": "references",
+      "note": "Volume discount side letter"
+    }
+  ],
+  "total": 3
+}
+```
+
+### Ask Questions About the Contract Package
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"query\": \"SELECT * FROM contracts RELATED TO '$MSA_ID' REASON 'What are the current payment terms?'\"
+  }" | jq
+```
+
+The LLM will find Amendment #1 and extract the updated payment terms.
+
+## Step 7: Version Tracking
+
+Now let's create a new version of the master agreement that supersedes the original:
+
+```bash
+curl -X POST http://localhost:4444/v1/ingest/text \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Master Services Agreement v2.0 - Acme Corp",
+    "table_id": "contracts",
+    "tags": ["msa", "acme", "active"],
+    "author": "Legal Team",
+    "metadata": {
+      "client": "Acme Corporation",
+      "effective_date": "2026-01-01",
+      "value_usd": 750000,
+      "version": "2.0"
+    },
+    "content": "# Master Services Agreement v2.0\n\nThis agreement supersedes and replaces the Master Services Agreement dated January 1, 2025, and all amendments thereto.\n\n## 1. Services\n[Updated terms...]\n\n## 2. Payment Terms\nClient shall pay within 45 days. 2% monthly late fee. 5% early payment discount.\n\n## 3. Confidentiality\n[Updated terms...]\n\n## 4. Term\n36 months with automatic renewal.\n\n## 5. Termination\n[Updated terms...]"
+  }'
+
+export MSA_V2_ID="<returned document_id>"
+```
+
+Create the supersedes relationship:
+
+```bash
+curl -X POST http://localhost:4444/v1/relations \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"from_document_id\": \"$MSA_ID\",
+    \"to_document_id\": \"$MSA_V2_ID\",
+    \"relation_type\": \"superseded_by\",
+    \"note\": \"MSA v2.0 consolidates all amendments and replaces v1.0\"
+  }"
+```
+
+### Find the Current Version
+
+```bash
+# Find what supersedes the original MSA
+curl -X POST http://localhost:4444/v1/query \
+  -H "Content-Type: application/json" \
+  -d "{\"query\": \"SELECT * FROM contracts SUPERSEDED_BY '$MSA_ID'\"}" | jq
+```
+
+### Check if a Document is Superseded
+
+```bash
+curl -s "http://localhost:4444/v1/documents/$MSA_ID/relations" | jq '.relations[] | select(.relation_type == "superseded_by")'
+```
+
+## Step 8: Cross-Reference with Policies
+
+Create a policy that references the contract:
+
+```bash
+curl -X POST http://localhost:4444/v1/ingest/text \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Vendor Payment Policy",
+    "table_id": "policies",
+    "tags": ["policy", "payment", "vendors"],
+    "author": "Finance Team",
+    "content": "# Vendor Payment Policy\n\n## Overview\nThis policy governs payment terms for all vendor agreements.\n\n## Standard Terms\n- Net 30 payment terms unless otherwise negotiated\n- Early payment discounts may be offered per individual agreements\n- Late payment penalties as specified in vendor contracts\n\n## Exceptions\nExceptions require CFO approval and must be documented in the vendor agreement."
+  }'
+
+export POLICY_ID="<returned document_id>"
+
+# Link policy to MSA v2
+curl -X POST http://localhost:4444/v1/relations \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"from_document_id\": \"$POLICY_ID\",
+    \"to_document_id\": \"$MSA_V2_ID\",
+    \"relation_type\": \"references\",
+    \"note\": \"Policy references Acme MSA as example of negotiated terms\"
+  }"
+```
+
+### Find All Documents Referencing a Policy
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -H "Content-Type: application/json" \
+  -d "{\"query\": \"SELECT * FROM policies REFERENCED_BY '$POLICY_ID'\"}" | jq
+```
+
+## Complete Relationship Graph
+
+Here's what you've built:
+
+```
+                    ┌─────────────────────┐
+                    │   Vendor Payment    │
+                    │      Policy         │
+                    └──────────┬──────────┘
+                               │ references
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│                         MSA v1.0                              │
+│                    (superseded_by ↓)                          │
+├──────────────────────────────────────────────────────────────┤
+│  references →  Amendment #1 (Payment Terms)                   │
+│  references →  Amendment #2 (Term Extension)                  │
+│  references →  Side Letter (Volume Discount)                  │
+└──────────────────────────────────────────────────────────────┘
+                               │
+                               ▼ superseded_by
+                    ┌──────────────────────┐
+                    │      MSA v2.0        │
+                    │   (current version)   │
+                    └──────────────────────┘
+```
+
+## Use Case Queries
+
+### 1. Contract Audit: "Show me all documents for the Acme deal"
+
+```sql
+SELECT * FROM contracts 
+WHERE tags CONTAINS 'acme'
+```
+
+### 2. Compliance Check: "Is this contract still valid?"
+
+```bash
+# Check if document has been superseded
+curl -s "http://localhost:4444/v1/documents/$MSA_ID/relations" | \
+  jq '.relations[] | select(.relation_type == "superseded_by")'
+```
+
+### 3. Impact Analysis: "What documents reference this policy?"
+
+```sql
+SELECT * FROM contracts REFERENCED_BY 'policy_id'
+```
+
+### 4. Due Diligence: "Get the complete contract package with all amendments"
+
+```bash
+# Get master + all related documents
+curl -X POST http://localhost:4444/v1/query \
+  -d "{\"query\": \"SELECT * FROM contracts RELATED TO '$MSA_ID'\"}"
+```
+
+### 5. Question Answering: "What are Acme's current payment terms?"
+
+```sql
+SELECT * FROM contracts 
+WHERE tags CONTAINS 'acme' 
+  AND tags CONTAINS 'active'
+REASON 'What are the payment terms and any discounts?'
+```
+
+## Summary
+
+You've learned how to:
+
+<CardGroup cols={2}>
+  <Card title="Create Relationships" icon="link">
+    Link documents with `references`, `superseded_by`, and other types
+  </Card>
+  <Card title="Track Versions" icon="clock-rotate-left">
+    Use `superseded_by` to track document evolution
+  </Card>
+  <Card title="Query Graphs" icon="diagram-project">
+    Use `RELATED TO` and shorthand syntax in RQL
+  </Card>
+  <Card title="Build Audit Trails" icon="clipboard-check">
+    Navigate complete document packages
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Relationships Guide" icon="book" href="/guides/relationships">
+    Complete API reference for relationships
+  </Card>
+  <Card title="RQL Guide" icon="code" href="/guides/rql">
+    All RQL query features
+  </Card>
+</CardGroup>

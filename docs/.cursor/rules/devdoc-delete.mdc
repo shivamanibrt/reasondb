@@ -1,0 +1,101 @@
+---
+description: Delete documentation pages interactively
+globs: ["**/*.mdx", "**/docs.json"]
+---
+
+# Delete Documentation
+
+When asked to delete documentation:
+
+## Step 1: Understand What to Delete
+
+Ask: "What would you like to delete?
+1. **A specific page** - Tell me which page(s)
+2. **Find unused pages** - I'll identify orphans
+3. **Deprecated content** - I'll find deprecated pages
+4. **Clean up** - Describe what to remove"
+
+## Step 2: Identify Pages
+
+**For Specific Page:**
+- Verify file exists
+- Check for incoming links
+
+**For Unused Pages:**
+Compare .mdx files vs docs.json:
+```
+Orphan pages (not in navigation):
+- drafts/unused.mdx
+- old/deprecated.mdx
+```
+
+**For Deprecated:**
+Search for deprecation markers in files.
+
+## Step 3: Analyze Impact
+
+Before deletion, check:
+- Incoming links from other pages
+- Entry in docs.json
+- Should redirect to new page?
+
+Show analysis:
+```
+Deleting `guides/old-feature.mdx`:
+
+Links from:
+- quickstart.mdx:45
+- api/overview.mdx:23
+
+In docs.json: Yes
+
+Options:
+1. Delete and fix links
+2. Delete and redirect
+3. Delete only
+4. Cancel
+```
+
+## Step 4: Confirm
+
+"Ready to delete?
+
+This will:
+- ❌ Delete the file
+- ❌ Remove from docs.json
+- ⚠️ Leave broken links (I can fix)
+
+Proceed?"
+
+## Step 5: Execute
+
+**Delete and Fix Links:**
+1. Delete file
+2. Update docs.json
+3. Fix links in other pages
+
+**Delete and Redirect:**
+1. Delete file
+2. Update docs.json
+3. Add redirect rule
+
+**Delete Only:**
+1. Delete file
+2. Update docs.json
+3. Warn about broken links
+
+## Summary
+
+"Deleted:
+- ❌ `guides/old-feature.mdx`
+- ✓ Removed from navigation
+- ✓ Fixed links in 2 pages
+
+Use `/commit-doc` when ready to commit."
+
+## Safety
+
+- Always confirm before deleting
+- Check for incoming links
+- Offer redirects for public pages
+- Never delete docs.json without explicit confirmation

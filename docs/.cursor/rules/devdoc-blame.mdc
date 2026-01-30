@@ -1,0 +1,114 @@
+---
+description: Analyze documentation for duplicates, outdated content, and discrepancies
+globs: ["**/*.mdx", "**/docs.json", "**/src/**", "**/lib/**"]
+---
+
+# Blame Documentation
+
+When asked to analyze, audit, or blame documentation:
+
+## Step 0: Read Context
+
+Read `.devdoc/context.json` for terminology and conventions.
+
+## Step 1: Understand Scope
+
+Ask: "What should I analyze?
+1. **Full audit** - Check everything
+2. **Specific area** - Focus on one section
+3. **Duplicates only** - Find redundant content
+4. **Outdated only** - Find stale docs
+5. **Discrepancies only** - Find code/doc mismatches"
+
+## Step 2: Scan Sources
+
+**For Codebase:**
+- Read exported functions and types
+- Check API routes and endpoints
+- Find configuration options
+- Note version numbers
+
+**For Documentation:**
+- Read all MDX files
+- Extract code examples
+- List documented features
+- Check terminology usage
+
+## Step 3: Generate Report
+
+### Finding Duplicates
+
+Look for:
+- Same paragraphs in multiple files
+- Nearly identical code examples
+- Repeated setup instructions
+- Overlapping topic coverage
+
+Report format:
+```
+## Duplicate Content
+
+### Topic: [name]
+Found in: file1.mdx, file2.mdx, file3.mdx
+Recommendation: Consolidate to [primary], link from others
+
+Details:
+- file1.mdx:15-30 ≈ file2.mdx:45-60 (90% similar)
+```
+
+### Finding Outdated Content
+
+Compare docs to code:
+- Function signatures changed?
+- New parameters not documented?
+- Return types updated?
+- Versions outdated?
+
+Report format:
+```
+## Outdated Documentation
+
+### file.mdx
+Line 23: `getUser(id)` 
+Current:  `getUser(id, options?)` 
+Action: Update signature and add options table
+```
+
+### Finding Discrepancies
+
+Check for mismatches:
+- Documented vs actual return values
+- Stated vs real requirements
+- Described vs implemented behavior
+
+Report format:
+```
+## Discrepancies
+
+### api/auth.mdx vs src/auth.ts
+Documented: Returns { token }
+Actual: Returns { token, expiresAt, refreshToken }
+Impact: Users won't know about refresh tokens
+```
+
+## Step 4: Prioritize Issues
+
+Rank by severity:
+1. **Critical** - Wrong information misleading users
+2. **High** - Missing important features
+3. **Medium** - Outdated but still works
+4. **Low** - Style/consistency issues
+
+## Step 5: Suggest Fixes
+
+"Found X issues. I can:
+1. Fix the critical issues now
+2. Create a detailed fix plan
+3. Fix specific category only"
+
+## Quick Commands
+
+- "blame docs" → Full analysis
+- "find duplicates" → Duplicate content only
+- "find outdated" → Stale docs only
+- "compare code to docs" → Discrepancy analysis

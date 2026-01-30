@@ -1,0 +1,1754 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "ReasonDB API",
+    "description": "A reasoning-native database API for AI agents. ReasonDB uses LLM-guided tree traversal for intelligent document search, optimized for AI agent workflows.\n\n## Key Features\n\n- **Hierarchical Document Storage**: Documents stored as navigable trees, not flat chunks\n- **LLM-Guided Retrieval**: AI reasons through tree structure using summaries\n- **Parallel Branch Exploration**: Concurrent traversal with beam search\n- **Multi-Format Support**: PDFs, Markdown, HTML, and more\n- **RQL Query Language**: SQL-like queries with SEARCH and REASON clauses",
+    "version": "0.1.0",
+    "license": {
+      "name": "MIT OR Apache-2.0",
+      "url": "https://github.com/reasondb/reasondb"
+    },
+    "contact": {
+      "name": "ReasonDB Contributors",
+      "url": "https://github.com/reasondb/reasondb"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:4444",
+      "description": "Local development server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "tables",
+      "description": "Table (collection) management - organize documents into logical groups"
+    },
+    {
+      "name": "ingestion",
+      "description": "Document ingestion - import text, files, and URLs into hierarchical trees"
+    },
+    {
+      "name": "search",
+      "description": "LLM-guided search - intelligent tree traversal with reasoning"
+    },
+    {
+      "name": "query",
+      "description": "RQL queries - SQL-like queries with SEARCH and REASON clauses"
+    },
+    {
+      "name": "documents",
+      "description": "Document management - list, view, and delete documents"
+    },
+    {
+      "name": "health",
+      "description": "Health check endpoints"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "description": "Returns OK if the server is running.",
+        "operationId": "healthCheck",
+        "tags": ["health"],
+        "responses": {
+          "200": {
+            "description": "Server is healthy",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "OK"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tables": {
+      "post": {
+        "summary": "Create a new table",
+        "description": "Creates a new table (collection) to organize documents. Documents can be assigned to tables during ingestion or moved later.",
+        "operationId": "createTable",
+        "tags": ["tables"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTableRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Table created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TableResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to create table",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List all tables",
+        "description": "Returns a list of all tables in the database, including document counts.",
+        "operationId": "listTables",
+        "tags": ["tables"],
+        "responses": {
+          "200": {
+            "description": "List of tables",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListTablesResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to list tables",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tables/{id}": {
+      "get": {
+        "summary": "Get table details",
+        "description": "Returns detailed information about a specific table.",
+        "operationId": "getTable",
+        "tags": ["tables"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Table ID",
+            "schema": {
+              "type": "string",
+              "example": "tbl_abc123"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Table details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TableResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Table not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to get table",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update a table",
+        "description": "Update table metadata, name, or description. Only provided fields are updated.",
+        "operationId": "updateTable",
+        "tags": ["tables"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Table ID",
+            "schema": {
+              "type": "string",
+              "example": "tbl_abc123"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTableRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Table updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TableResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Table not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to update table",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a table",
+        "description": "Delete a table. By default, documents in the table are moved to the default table. Set `cascade=true` in the request body to delete all documents in the table.",
+        "operationId": "deleteTable",
+        "tags": ["tables"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Table ID",
+            "schema": {
+              "type": "string",
+              "example": "tbl_abc123"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteTableRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Table deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "id": {
+                      "type": "string",
+                      "example": "tbl_abc123"
+                    },
+                    "cascade": {
+                      "type": "boolean",
+                      "example": false
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cannot delete default table",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Table not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to delete table",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tables/{id}/documents": {
+      "get": {
+        "summary": "Get documents in a table",
+        "description": "Returns all documents assigned to a specific table.",
+        "operationId": "getTableDocuments",
+        "tags": ["tables"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Table ID",
+            "schema": {
+              "type": "string",
+              "example": "tbl_abc123"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Documents in table",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TableDocumentsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Table not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to get documents",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ingest/text": {
+      "post": {
+        "summary": "Ingest raw text or markdown",
+        "description": "Ingest plain text or Markdown content directly. The content will be chunked, organized into a tree structure, and optionally summarized by an LLM. You must specify a table_id to assign the document to.",
+        "operationId": "ingestText",
+        "tags": ["ingestion"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngestTextRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Text ingested successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Ingestion failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ingest/file": {
+      "post": {
+        "summary": "Ingest a file (multipart upload)",
+        "description": "Upload a document file for ingestion. Supports PDF, Word, Excel, PowerPoint, images (with OCR), audio files (with transcription), HTML, and more via MarkItDown.",
+        "operationId": "ingestFile",
+        "tags": ["ingestion"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file", "table_id"],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "File to ingest"
+                  },
+                  "table_id": {
+                    "type": "string",
+                    "description": "Table ID to assign the document to",
+                    "example": "tbl_legal"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "File ingested successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Ingestion failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ingest/url": {
+      "post": {
+        "summary": "Ingest from URL",
+        "description": "Ingest content from a URL. Supports web pages, YouTube videos (with transcription), and other online resources. The content will be extracted, chunked, and organized into a tree.",
+        "operationId": "ingestUrl",
+        "tags": ["ingestion"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngestUrlRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "URL content ingested successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (invalid URL)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Ingestion failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/search": {
+      "post": {
+        "summary": "Search with LLM-guided tree traversal",
+        "description": "Performs an intelligent search across documents using an LLM to navigate the hierarchical tree structure. The LLM evaluates each node's summary to decide which branches to explore, mimicking human reasoning. Returns relevant content with extracted answers and confidence scores.",
+        "operationId": "search",
+        "tags": ["search"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Search completed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Search failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/query": {
+      "post": {
+        "summary": "Execute an RQL query",
+        "description": "Execute SQL-like queries against documents using ReasonDB Query Language (RQL).\n\nSupports:\n- `WHERE` clauses for filtering by tags, author, metadata\n- `SEARCH` clause for BM25 full-text search (fast keyword matching)\n- `REASON` clause for LLM semantic search (intelligent answer extraction)\n- `GROUP BY` and aggregate functions (COUNT, SUM, AVG)\n- `EXPLAIN` to view query execution plans",
+        "operationId": "executeQuery",
+        "tags": ["query"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Query executed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query syntax",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/documents": {
+      "get": {
+        "summary": "List all documents",
+        "description": "Returns a summary of all ingested documents in the database.",
+        "operationId": "listDocuments",
+        "tags": ["documents"],
+        "responses": {
+          "200": {
+            "description": "List of documents",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DocumentSummary"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Storage error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/documents/{id}": {
+      "get": {
+        "summary": "Get document details",
+        "description": "Returns full details for a specific document including metadata and tree info.",
+        "operationId": "getDocument",
+        "tags": ["documents"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Document ID",
+            "schema": {
+              "type": "string",
+              "example": "doc_abc123"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Document details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Document not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Storage error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a document",
+        "description": "Deletes a document and all its associated nodes (cascade delete).",
+        "operationId": "deleteDocument",
+        "tags": ["documents"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Document ID to delete",
+            "schema": {
+              "type": "string",
+              "example": "doc_abc123"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Document deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "document_id": {
+                      "type": "string",
+                      "example": "doc_abc123"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Document not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Storage error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/documents/{id}/nodes": {
+      "get": {
+        "summary": "Get all nodes for a document",
+        "description": "Returns a flat list of all nodes in the document tree.",
+        "operationId": "getDocumentNodes",
+        "tags": ["documents"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Document ID",
+            "schema": {
+              "type": "string",
+              "example": "doc_abc123"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of nodes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NodeSummary"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Document not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Storage error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/documents/{id}/tree": {
+      "get": {
+        "summary": "Get document as tree structure",
+        "description": "Returns the complete hierarchical tree structure with nested children. Useful for visualizing or navigating the document structure.",
+        "operationId": "getDocumentTree",
+        "tags": ["documents"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Document ID",
+            "schema": {
+              "type": "string",
+              "example": "doc_abc123"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Document tree",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TreeNode"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Document not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Storage error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateTableRequest": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Human-readable name for the table",
+            "example": "Legal Contracts"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional description",
+            "example": "All legal documents and contracts"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Custom metadata (key-value pairs)",
+            "additionalProperties": true,
+            "example": {
+              "department": "legal",
+              "confidential": true
+            }
+          }
+        }
+      },
+      "UpdateTableRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Updated name",
+            "example": "Legal Documents"
+          },
+          "description": {
+            "type": "string",
+            "description": "Updated description",
+            "example": "All legal documents"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Metadata to merge",
+            "additionalProperties": true
+          }
+        }
+      },
+      "DeleteTableRequest": {
+        "type": "object",
+        "properties": {
+          "cascade": {
+            "type": "boolean",
+            "description": "If true, delete all documents in the table. If false, move them to default table.",
+            "default": false,
+            "example": false
+          }
+        }
+      },
+      "TableResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique table ID",
+            "example": "tbl_abc123"
+          },
+          "name": {
+            "type": "string",
+            "description": "Table name",
+            "example": "Legal Contracts"
+          },
+          "description": {
+            "type": "string",
+            "description": "Table description",
+            "example": "All legal documents and contracts"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Custom metadata",
+            "additionalProperties": true
+          },
+          "document_count": {
+            "type": "integer",
+            "description": "Number of documents in this table",
+            "example": 15
+          },
+          "total_nodes": {
+            "type": "integer",
+            "description": "Total nodes across all documents",
+            "example": 234
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp",
+            "example": "2026-01-27T10:00:00Z"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp",
+            "example": "2026-01-27T12:30:00Z"
+          }
+        }
+      },
+      "ListTablesResponse": {
+        "type": "object",
+        "properties": {
+          "tables": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TableSummary"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total number of tables",
+            "example": 5
+          }
+        }
+      },
+      "TableSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "tbl_abc123"
+          },
+          "name": {
+            "type": "string",
+            "example": "Legal Contracts"
+          },
+          "document_count": {
+            "type": "integer",
+            "example": 15
+          },
+          "total_nodes": {
+            "type": "integer",
+            "example": 234
+          }
+        }
+      },
+      "TableDocumentsResponse": {
+        "type": "object",
+        "properties": {
+          "table_id": {
+            "type": "string",
+            "example": "tbl_abc123"
+          },
+          "documents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TableDocumentSummary"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "example": 15
+          }
+        }
+      },
+      "TableDocumentSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "doc_xyz789"
+          },
+          "title": {
+            "type": "string",
+            "example": "NDA Agreement"
+          },
+          "total_nodes": {
+            "type": "integer",
+            "example": 12
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "author": {
+            "type": "string",
+            "example": "Legal Team"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-01-27T10:00:00Z"
+          }
+        }
+      },
+      "IngestTextRequest": {
+        "type": "object",
+        "required": ["title", "content", "table_id"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Document title",
+            "example": "My Research Notes"
+          },
+          "content": {
+            "type": "string",
+            "description": "Document content (plain text or Markdown)",
+            "example": "# Introduction\n\nThis document covers..."
+          },
+          "table_id": {
+            "type": "string",
+            "description": "Table ID to assign the document to (REQUIRED - table must exist)",
+            "example": "tbl_legal"
+          },
+          "generate_summaries": {
+            "type": "boolean",
+            "description": "Whether to generate LLM summaries (default: true)",
+            "default": true
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Document tags for filtering",
+            "example": ["nda", "confidential"]
+          },
+          "author": {
+            "type": "string",
+            "description": "Document author",
+            "example": "Legal Team"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Custom metadata (key-value pairs)",
+            "additionalProperties": true,
+            "example": {
+              "contract_type": "nda",
+              "value_usd": 50000
+            }
+          }
+        }
+      },
+      "IngestUrlRequest": {
+        "type": "object",
+        "required": ["url", "table_id"],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL to ingest (web page, YouTube video, etc.)",
+            "example": "https://en.wikipedia.org/wiki/Machine_learning"
+          },
+          "table_id": {
+            "type": "string",
+            "description": "Table ID to assign the document to (REQUIRED - table must exist)",
+            "example": "tbl_research"
+          },
+          "generate_summaries": {
+            "type": "boolean",
+            "description": "Whether to generate LLM summaries (default: true)",
+            "default": true
+          }
+        }
+      },
+      "IngestResponse": {
+        "type": "object",
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "description": "Unique document ID",
+            "example": "doc_abc123"
+          },
+          "title": {
+            "type": "string",
+            "description": "Document title",
+            "example": "Machine Learning Fundamentals"
+          },
+          "total_nodes": {
+            "type": "integer",
+            "description": "Total number of nodes in the tree",
+            "example": 42
+          },
+          "max_depth": {
+            "type": "integer",
+            "description": "Maximum depth of the tree",
+            "example": 4
+          },
+          "stats": {
+            "$ref": "#/components/schemas/IngestStats"
+          }
+        }
+      },
+      "IngestStats": {
+        "type": "object",
+        "properties": {
+          "chars_extracted": {
+            "type": "integer",
+            "description": "Characters extracted from source",
+            "example": 50000
+          },
+          "chunks_created": {
+            "type": "integer",
+            "description": "Text chunks created",
+            "example": 25
+          },
+          "nodes_created": {
+            "type": "integer",
+            "description": "Tree nodes created",
+            "example": 42
+          },
+          "summaries_generated": {
+            "type": "integer",
+            "description": "Summaries generated by LLM",
+            "example": 42
+          },
+          "total_time_ms": {
+            "type": "integer",
+            "description": "Total processing time in milliseconds",
+            "example": 5230
+          }
+        }
+      },
+      "SearchRequest": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "The natural language query to search for",
+            "example": "What are the key benefits of machine learning?"
+          },
+          "document_id": {
+            "type": "string",
+            "description": "Optional document ID to search within (searches all if not provided)",
+            "example": "doc_abc123"
+          },
+          "table_id": {
+            "type": "string",
+            "description": "Optional table ID to restrict search to",
+            "example": "tbl_legal"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Filter by document tags (any match)",
+            "example": ["nda", "confidential"]
+          },
+          "author": {
+            "type": "string",
+            "description": "Filter by document author",
+            "example": "Legal Team"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Filter by document metadata",
+            "additionalProperties": true,
+            "example": {
+              "contract_type": "nda"
+            }
+          },
+          "max_depth": {
+            "type": "integer",
+            "description": "Maximum tree depth to traverse (default: 10)",
+            "default": 10,
+            "example": 10
+          },
+          "beam_width": {
+            "type": "integer",
+            "description": "Beam width for parallel exploration (default: 3)",
+            "default": 3,
+            "example": 3
+          },
+          "min_confidence": {
+            "type": "number",
+            "description": "Minimum confidence to continue traversal (default: 0.3)",
+            "default": 0.3,
+            "example": 0.3
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum results to return (default: 10)",
+            "default": 10,
+            "example": 10
+          }
+        }
+      },
+      "SearchResponse": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchResult"
+            },
+            "description": "Search results ordered by relevance"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/SearchStats"
+          }
+        }
+      },
+      "SearchResult": {
+        "type": "object",
+        "properties": {
+          "node_id": {
+            "type": "string",
+            "description": "Node ID where content was found",
+            "example": "node_xyz789"
+          },
+          "document_id": {
+            "type": "string",
+            "description": "Document ID containing this result",
+            "example": "doc_abc123"
+          },
+          "path": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PathNode"
+            },
+            "description": "Path from root to this node (breadcrumbs)"
+          },
+          "content": {
+            "type": "string",
+            "description": "The relevant content at this node",
+            "example": "Machine learning enables computers to learn from data..."
+          },
+          "answer": {
+            "type": "string",
+            "description": "LLM's extracted answer (if applicable)",
+            "example": "The key benefits include automation, pattern recognition, and predictive capabilities."
+          },
+          "confidence": {
+            "type": "number",
+            "description": "Confidence score (0.0 to 1.0)",
+            "example": 0.85
+          }
+        }
+      },
+      "PathNode": {
+        "type": "object",
+        "properties": {
+          "node_id": {
+            "type": "string",
+            "example": "node_abc"
+          },
+          "title": {
+            "type": "string",
+            "example": "Chapter 3: Machine Learning"
+          },
+          "reasoning": {
+            "type": "string",
+            "description": "LLM's reasoning for selecting this path",
+            "example": "This chapter covers ML fundamentals relevant to the query"
+          }
+        }
+      },
+      "SearchStats": {
+        "type": "object",
+        "properties": {
+          "nodes_visited": {
+            "type": "integer",
+            "description": "Total nodes visited during traversal",
+            "example": 15
+          },
+          "nodes_pruned": {
+            "type": "integer",
+            "description": "Nodes pruned (not explored due to low confidence)",
+            "example": 8
+          },
+          "llm_calls": {
+            "type": "integer",
+            "description": "Number of LLM API calls made",
+            "example": 7
+          },
+          "total_time_ms": {
+            "type": "integer",
+            "description": "Total search time in milliseconds",
+            "example": 1250
+          }
+        }
+      },
+      "QueryRequest": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "RQL query string",
+            "example": "SELECT * FROM legal WHERE author = 'Alice' LIMIT 10"
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "description": "Optional timeout in milliseconds"
+          }
+        }
+      },
+      "QueryResponse": {
+        "type": "object",
+        "properties": {
+          "documents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueryDocumentMatch"
+            },
+            "description": "Matched documents"
+          },
+          "total_count": {
+            "type": "integer",
+            "description": "Total count before pagination"
+          },
+          "execution_time_ms": {
+            "type": "integer",
+            "description": "Execution time in milliseconds"
+          },
+          "aggregates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AggregateResult"
+            },
+            "description": "Aggregate results (for COUNT/SUM/AVG queries)"
+          },
+          "explain": {
+            "$ref": "#/components/schemas/QueryPlan",
+            "description": "Query plan (for EXPLAIN queries)"
+          }
+        }
+      },
+      "QueryDocumentMatch": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Document ID"
+          },
+          "title": {
+            "type": "string",
+            "description": "Document title"
+          },
+          "table_id": {
+            "type": "string",
+            "description": "Table ID"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "author": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number",
+            "description": "Relevance score (BM25 for SEARCH, confidence for REASON)"
+          },
+          "highlights": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Highlighted snippets"
+          },
+          "answer": {
+            "type": "string",
+            "description": "LLM-extracted answer (for REASON queries)"
+          },
+          "confidence": {
+            "type": "number",
+            "description": "Confidence score from LLM (for REASON queries)"
+          }
+        }
+      },
+      "AggregateResult": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Alias or function name"
+          },
+          "value": {
+            "description": "Computed value"
+          },
+          "group_key": {
+            "type": "array",
+            "items": {
+              "type": "array"
+            },
+            "description": "Group key (for GROUP BY queries)"
+          }
+        }
+      },
+      "QueryPlan": {
+        "type": "object",
+        "properties": {
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanStep"
+            },
+            "description": "Steps in the execution plan"
+          },
+          "estimated_rows": {
+            "type": "integer",
+            "description": "Estimated row count"
+          },
+          "indexes_used": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Indexes that would be used"
+          }
+        }
+      },
+      "PlanStep": {
+        "type": "object",
+        "properties": {
+          "step_type": {
+            "type": "string",
+            "description": "Step type (e.g., TableScan, IndexScan, Filter, Aggregate)"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of what this step does"
+          },
+          "estimated_cost": {
+            "type": "integer",
+            "description": "Estimated cost (0-100)"
+          }
+        }
+      },
+      "DocumentSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "doc_abc123"
+          },
+          "title": {
+            "type": "string",
+            "example": "Machine Learning Handbook"
+          },
+          "total_nodes": {
+            "type": "integer",
+            "example": 42
+          },
+          "max_depth": {
+            "type": "integer",
+            "example": 4
+          },
+          "source_path": {
+            "type": "string",
+            "example": "/uploads/ml-handbook.pdf"
+          },
+          "mime_type": {
+            "type": "string",
+            "example": "application/pdf"
+          },
+          "file_size": {
+            "type": "integer",
+            "example": 2048576
+          },
+          "table_id": {
+            "type": "string",
+            "example": "tbl_legal"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "author": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2024-01-15T10:30:00Z"
+          }
+        }
+      },
+      "DocumentDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "doc_abc123"
+          },
+          "title": {
+            "type": "string",
+            "example": "Machine Learning Handbook"
+          },
+          "root_node_id": {
+            "type": "string",
+            "description": "Root node ID of the tree",
+            "example": "node_root_abc"
+          },
+          "total_nodes": {
+            "type": "integer",
+            "example": 42
+          },
+          "max_depth": {
+            "type": "integer",
+            "example": 4
+          },
+          "source_path": {
+            "type": "string",
+            "example": "/uploads/ml-handbook.pdf"
+          },
+          "mime_type": {
+            "type": "string",
+            "example": "application/pdf"
+          },
+          "file_size": {
+            "type": "integer",
+            "example": 2048576
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2024-01-15T10:30:00Z"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2024-01-15T10:35:00Z"
+          }
+        }
+      },
+      "NodeSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "node_xyz789"
+          },
+          "title": {
+            "type": "string",
+            "example": "Chapter 3: Neural Networks"
+          },
+          "summary": {
+            "type": "string",
+            "description": "LLM-generated summary of this node",
+            "example": "This chapter covers the fundamentals of neural networks..."
+          },
+          "depth": {
+            "type": "integer",
+            "description": "Depth in the tree (0 = root)",
+            "example": 1
+          },
+          "is_leaf": {
+            "type": "boolean",
+            "description": "Whether this is a leaf node (no children)",
+            "example": false
+          },
+          "children_count": {
+            "type": "integer",
+            "description": "Number of direct children",
+            "example": 5
+          }
+        }
+      },
+      "TreeNode": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "node_xyz789"
+          },
+          "title": {
+            "type": "string",
+            "example": "Chapter 3: Neural Networks"
+          },
+          "summary": {
+            "type": "string",
+            "description": "LLM-generated summary",
+            "example": "This chapter covers neural network fundamentals..."
+          },
+          "depth": {
+            "type": "integer",
+            "description": "Depth in the tree (0 = root)",
+            "example": 1
+          },
+          "is_leaf": {
+            "type": "boolean",
+            "example": false
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TreeNode"
+            },
+            "description": "Child nodes (recursive structure)"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorDetail"
+          }
+        },
+        "example": {
+          "error": {
+            "code": "NOT_FOUND",
+            "message": "Resource not found: doc123"
+          }
+        }
+      },
+      "ErrorDetail": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Error code",
+            "example": "NOT_FOUND",
+            "enum": [
+              "NOT_FOUND",
+              "BAD_REQUEST",
+              "VALIDATION_ERROR",
+              "STORAGE_ERROR",
+              "INGESTION_ERROR",
+              "SEARCH_ERROR",
+              "LLM_ERROR",
+              "INTERNAL_ERROR"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable error message",
+            "example": "Document not found: doc123"
+          },
+          "details": {
+            "description": "Additional error details (optional)"
+          }
+        }
+      }
+    }
+  }
+}

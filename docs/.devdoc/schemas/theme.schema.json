@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://devdoc.sh/theme.json",
+  "title": "DevDoc Theme Schema",
+  "description": "Schema for theme.json - customize the look and feel of your documentation",
+  "type": "object",
+  "properties": {
+    "$schema": { "type": "string", "default": "https://devdoc.sh/theme.json" },
+    "logo": {
+      "type": "object",
+      "properties": {
+        "url": { "type": "string", "description": "Single logo URL for both modes" },
+        "light": { "type": "string", "description": "Logo for light mode" },
+        "dark": { "type": "string", "description": "Logo for dark mode" },
+        "alt": { "type": "string", "description": "Alt text" },
+        "width": { "type": "number", "default": 120 },
+        "height": { "type": "number", "default": 32 }
+      }
+    },
+    "colors": {
+      "type": "object",
+      "properties": {
+        "primary": { "type": "string", "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$" },
+        "primaryLight": { "type": "string", "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$" },
+        "primaryDark": { "type": "string", "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$" }
+      }
+    },
+    "header": {
+      "type": "object",
+      "properties": {
+        "showAskAI": { "type": "boolean", "default": true },
+        "showSearch": { "type": "boolean", "default": true },
+        "showThemeToggle": { "type": "boolean", "default": true }
+      }
+    },
+    "navbar": {
+      "type": "object",
+      "properties": {
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["label", "href"],
+            "properties": {
+              "label": { "type": "string" },
+              "href": { "type": "string" },
+              "external": { "type": "boolean", "default": false }
+            }
+          }
+        },
+        "primary": {
+          "type": "object",
+          "required": ["label", "href"],
+          "properties": {
+            "label": { "type": "string", "examples": ["Get Started", "Sign Up"] },
+            "href": { "type": "string" }
+          }
+        }
+      }
+    },
+    "typography": {
+      "type": "object",
+      "properties": {
+        "fontFamily": { "type": "string" },
+        "fontFamilyMono": { "type": "string" },
+        "baseFontSize": { "type": "string", "default": "16px" }
+      }
+    },
+    "defaultTheme": { "type": "string", "enum": ["light", "dark", "system"], "default": "system" },
+    "customCss": { "type": "string" }
+  },
+  "colorPresets": {
+    "indigo": { "primary": "#6366f1", "primaryLight": "#818cf8", "primaryDark": "#4f46e5" },
+    "blue": { "primary": "#3b82f6", "primaryLight": "#60a5fa", "primaryDark": "#2563eb" },
+    "green": { "primary": "#10b981", "primaryLight": "#34d399", "primaryDark": "#059669" },
+    "amber": { "primary": "#f59e0b", "primaryLight": "#fbbf24", "primaryDark": "#d97706" },
+    "red": { "primary": "#ef4444", "primaryLight": "#f87171", "primaryDark": "#dc2626" },
+    "purple": { "primary": "#8b5cf6", "primaryLight": "#a78bfa", "primaryDark": "#7c3aed" },
+    "pink": { "primary": "#ec4899", "primaryLight": "#f472b6", "primaryDark": "#db2777" }
+  }
+}

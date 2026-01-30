@@ -1,0 +1,15 @@
+/**
+ * Custom CSS for your documentation
+ * 
+ * Add your custom styles here to override the default theme.
+ * 
+ * Available CSS variables:
+ * - --docs-primary: Primary brand color
+ * - --docs-primary-light: Lighter variant
+ * - --docs-primary-dark: Darker variant
+ * 
+ * Example:
+ * :root {
+ *   --docs-primary: #3B82F6;
+ * }
+ */

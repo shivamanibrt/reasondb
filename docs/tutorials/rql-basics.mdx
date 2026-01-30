@@ -1,0 +1,356 @@
+---
+title: "Tutorial: RQL Query Language"
+description: Learn ReasonDB's query language from basics to advanced reasoning queries
+---
+
+In this tutorial, you'll master RQL (ReasonDB Query Language) by building queries step by step. By the end, you'll be able to write complex queries that combine filtering, full-text search, and LLM reasoning.
+
+## What You'll Learn
+
+- Basic SELECT queries
+- Filtering with WHERE clauses
+- Full-text search with SEARCH
+- LLM reasoning with REASON
+- Aggregations and GROUP BY
+- Combining clauses for powerful queries
+
+## Setup
+
+<Steps>
+  <Step title="Start ReasonDB">
+    ```bash
+    ANTHROPIC_API_KEY=your-key cargo run -p reasondb-server
+    ```
+  </Step>
+
+  <Step title="Create a sample table">
+    ```bash
+    curl -X POST http://localhost:4444/v1/tables \
+      -H "Content-Type: application/json" \
+      -d '{"name": "books", "description": "Book collection for tutorial"}'
+    ```
+
+    Save the returned `id` (e.g., `tbl_abc123`).
+  </Step>
+
+  <Step title="Ingest sample documents">
+    Let's add some books to query. Replace `TABLE_ID` with your table ID:
+
+    ```bash
+    # Book 1: Science Fiction
+    curl -X POST http://localhost:4444/v1/ingest/text \
+      -H "Content-Type: application/json" \
+      -d '{
+        "title": "The Quantum Garden",
+        "table_id": "TABLE_ID",
+        "content": "# The Quantum Garden\n\nA science fiction novel about quantum computing and artificial intelligence.\n\n## Plot Summary\n\nIn 2150, Dr. Sarah Chen discovers a way to grow quantum computers organically. Her \"quantum gardens\" revolutionize computing but attract dangerous attention.\n\n## Themes\n\n### Technology and Nature\nThe book explores the boundary between organic and artificial systems.\n\n### Ethics of AI\nChen must decide whether to give her quantum AI consciousness.",
+        "tags": ["science-fiction", "ai", "quantum"],
+        "author": "James Morrison",
+        "metadata": {"year": 2023, "pages": 342, "rating": 4.5}
+      }'
+
+    # Book 2: Mystery
+    curl -X POST http://localhost:4444/v1/ingest/text \
+      -H "Content-Type: application/json" \
+      -d '{
+        "title": "The Silent Witness",
+        "table_id": "TABLE_ID",
+        "content": "# The Silent Witness\n\nA gripping mystery thriller set in Victorian London.\n\n## Plot Summary\n\nDetective Inspector Mills investigates a murder where the only witness is a parrot. The bird holds the key to solving the case.\n\n## Themes\n\n### Justice and Truth\nMills struggles with evidence that cannot speak for itself.\n\n### Victorian Society\nThe class divide affects how the investigation unfolds.",
+        "tags": ["mystery", "thriller", "historical"],
+        "author": "Elizabeth Shaw",
+        "metadata": {"year": 2022, "pages": 298, "rating": 4.2}
+      }'
+
+    # Book 3: Science Fiction
+    curl -X POST http://localhost:4444/v1/ingest/text \
+      -H "Content-Type: application/json" \
+      -d '{
+        "title": "Mars Colony One",
+        "table_id": "TABLE_ID",
+        "content": "# Mars Colony One\n\nThe story of humanity first permanent settlement on Mars.\n\n## Plot Summary\n\nCommander Yuki Tanaka leads 200 colonists to Mars. When Earth goes silent, they must survive alone.\n\n## Themes\n\n### Human Resilience\nThe colonists face impossible odds but find strength in community.\n\n### Isolation\nCut off from Earth, they must redefine what home means.",
+        "tags": ["science-fiction", "space", "survival"],
+        "author": "James Morrison",
+        "metadata": {"year": 2024, "pages": 410, "rating": 4.8}
+      }'
+    ```
+  </Step>
+</Steps>
+
+## Part 1: Basic SELECT
+
+The simplest query selects all documents from a table:
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "SELECT * FROM books"}'
+```
+
+**Response:**
+```json
+{
+  "documents": [
+    {"id": "doc_1", "title": "The Quantum Garden", "author": "James Morrison", ...},
+    {"id": "doc_2", "title": "The Silent Witness", "author": "Elizabeth Shaw", ...},
+    {"id": "doc_3", "title": "Mars Colony One", "author": "James Morrison", ...}
+  ],
+  "total_count": 3,
+  "execution_time_ms": 12
+}
+```
+
+### Select Specific Fields
+
+You can select only the fields you need:
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT title, author FROM books"}'
+```
+
+<Tip>
+Selecting fewer fields can improve performance for large result sets.
+</Tip>
+
+## Part 2: Filtering with WHERE
+
+### String Equality
+
+Find books by a specific author:
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM books WHERE author = '\''James Morrison'\''"}'
+```
+
+**Result:** Returns "The Quantum Garden" and "Mars Colony One"
+
+### Numeric Comparisons
+
+Find highly-rated books:
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT title, metadata.rating FROM books WHERE metadata.rating > 4.3"}'
+```
+
+**Result:** Returns books with rating > 4.3
+
+### Tag Filtering
+
+Find books with a specific tag:
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM books WHERE tags CONTAINS '\''science-fiction'\''"}'
+```
+
+**Result:** Returns the two sci-fi books
+
+### Combining Conditions
+
+Use AND/OR for complex filters:
+
+```bash
+# Science fiction books by James Morrison
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM books WHERE author = '\''James Morrison'\'' AND tags CONTAINS '\''science-fiction'\''"}'
+```
+
+### Pattern Matching
+
+Use LIKE for partial matches:
+
+```bash
+# Titles containing "The"
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM books WHERE title LIKE '\''The%'\''"}'
+```
+
+## Part 3: Full-Text Search with SEARCH
+
+The SEARCH clause uses BM25 for fast keyword matching:
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM books SEARCH '\''quantum computing'\''"}'
+```
+
+**Response:**
+```json
+{
+  "documents": [{
+    "id": "doc_1",
+    "title": "The Quantum Garden",
+    "score": 8.5,
+    "highlights": ["...way to grow <b>quantum</b> <b>computers</b> organically..."]
+  }],
+  "total_count": 1,
+  "execution_time_ms": 23
+}
+```
+
+### Combine SEARCH with WHERE
+
+Filter first, then search:
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM books WHERE author = '\''James Morrison'\'' SEARCH '\''Mars survival'\''"}'
+```
+
+<Note>
+SEARCH is fast (~50ms) because it uses a pre-built BM25 index. Use it for keyword lookups.
+</Note>
+
+## Part 4: LLM Reasoning with REASON
+
+The REASON clause uses an LLM to understand your question and extract answers:
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM books REASON '\''What book deals with artificial consciousness?'\''"}'
+```
+
+**Response:**
+```json
+{
+  "documents": [{
+    "id": "doc_1",
+    "title": "The Quantum Garden",
+    "answer": "The Quantum Garden deals with artificial consciousness. Dr. Sarah Chen must decide whether to give her quantum AI consciousness, exploring the ethics of creating sentient machines.",
+    "confidence": 0.91
+  }],
+  "total_count": 1,
+  "execution_time_ms": 2340
+}
+```
+
+### Complex Questions
+
+REASON excels at understanding complex questions:
+
+```bash
+# Find books about isolation
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM books REASON '\''Which books explore themes of isolation or being cut off?'\''"}'
+```
+
+### Combine Everything
+
+The most powerful queries combine WHERE, SEARCH, and REASON:
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM books WHERE tags CONTAINS '\''science-fiction'\'' REASON '\''What ethical dilemmas do the protagonists face?'\''"}'
+```
+
+## Part 5: Aggregations
+
+### Count Documents
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT COUNT(*) FROM books"}'
+```
+
+### Group By
+
+Count books per author:
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT COUNT(*) AS book_count, author FROM books GROUP BY author"}'
+```
+
+**Response:**
+```json
+{
+  "aggregates": [
+    {"name": "book_count", "value": 2, "group_key": [["author", "James Morrison"]]},
+    {"name": "book_count", "value": 1, "group_key": [["author", "Elizabeth Shaw"]]}
+  ]
+}
+```
+
+### Average Rating
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT AVG(metadata.rating) AS avg_rating FROM books"}'
+```
+
+## Part 6: Sorting and Pagination
+
+### Order Results
+
+```bash
+# Sort by rating descending
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM books ORDER BY metadata.rating DESC"}'
+```
+
+### Paginate Results
+
+```bash
+# First page (2 results)
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM books ORDER BY title LIMIT 2"}'
+
+# Second page
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM books ORDER BY title LIMIT 2 OFFSET 2"}'
+```
+
+## Challenges
+
+Test your RQL skills with these exercises:
+
+<AccordionGroup>
+  <Accordion title="Challenge 1: Find all books from 2023 or later">
+    ```sql
+    SELECT * FROM books WHERE metadata.year >= 2023
+    ```
+  </Accordion>
+
+  <Accordion title="Challenge 2: Search for 'detective' and get only the title">
+    ```sql
+    SELECT title FROM books SEARCH 'detective'
+    ```
+  </Accordion>
+
+  <Accordion title="Challenge 3: Ask which book would appeal to AI enthusiasts">
+    ```sql
+    SELECT * FROM books REASON 'Which book would most appeal to someone interested in artificial intelligence?'
+    ```
+  </Accordion>
+
+  <Accordion title="Challenge 4: Get average pages per author">
+    ```sql
+    SELECT AVG(metadata.pages) AS avg_pages, author FROM books GROUP BY author
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Summary
+
+| Clause | Purpose | Speed |
+|--------|---------|-------|
+| `SELECT` | Choose fields | Fast |
+| `WHERE` | Filter by metadata | Fast |
+| `SEARCH` | BM25 keyword search | Fast (~50ms) |
+| `REASON` | LLM semantic search | Slower (~2-5s) |
+| `GROUP BY` | Aggregate results | Fast |
+| `ORDER BY` | Sort results | Fast |
+| `LIMIT/OFFSET` | Paginate | Fast |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Legal Document Search" icon="scale" href="/tutorials/legal-search">
+    Apply RQL to real legal documents
+  </Card>
+  <Card title="RQL Reference" icon="book-open" href="/guides/rql">
+    Complete RQL syntax reference
+  </Card>
+</CardGroup>

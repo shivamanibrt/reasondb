@@ -1,0 +1,231 @@
+---
+title: API Introduction
+description: Getting started with the ReasonDB REST API
+---
+
+The ReasonDB API provides programmatic access to document ingestion, LLM-guided search, and RQL queries. This section covers the API structure, request format, and common patterns.
+
+## Base URL
+
+All API requests should be made to:
+
+```
+http://localhost:4444/v1
+```
+
+<Note>
+The base URL depends on your `REASONDB_HOST` and `REASONDB_PORT` configuration. The default is `localhost:4444`.
+</Note>
+
+## Interactive Documentation
+
+Swagger UI is available at:
+
+```
+http://localhost:4444/swagger-ui/
+```
+
+Use the interactive playground to test endpoints directly from your browser.
+
+## Authentication
+
+When authentication is enabled, include your API key in requests:
+
+```bash
+# Using Authorization header (recommended)
+curl -X POST http://localhost:4444/v1/search \
+  -H "Authorization: Bearer rdb_live_xxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What is machine learning?"}'
+
+# Or using X-API-Key header
+curl -X POST http://localhost:4444/v1/search \
+  -H "X-API-Key: rdb_live_xxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What is machine learning?"}'
+```
+
+<Note>
+Authentication is optional by default. Enable it for production deployments with `--auth-enabled` flag. See the [Authentication Guide](/guides/authentication) for details.
+</Note>
+
+## Request Format
+
+The API accepts JSON-encoded request bodies and returns JSON-encoded responses.
+
+```bash
+curl -X POST http://localhost:4444/v1/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What is machine learning?"}'
+```
+
+### Content Types
+
+| Endpoint | Content-Type |
+|----------|--------------|
+| Most endpoints | `application/json` |
+| File upload | `multipart/form-data` |
+
+## API Endpoints Overview
+
+### Tables
+
+Organize documents into collections:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/v1/tables` | Create a table |
+| `GET` | `/v1/tables` | List all tables |
+| `GET` | `/v1/tables/{id}` | Get table details |
+| `PATCH` | `/v1/tables/{id}` | Update a table |
+| `DELETE` | `/v1/tables/{id}` | Delete a table |
+| `GET` | `/v1/tables/{id}/documents` | List documents in table |
+
+### Ingestion
+
+Import documents into ReasonDB:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/v1/ingest/text` | Ingest text/markdown |
+| `POST` | `/v1/ingest/file` | Upload and ingest file |
+| `POST` | `/v1/ingest/url` | Ingest from URL |
+
+### Search & Query
+
+Find and retrieve content:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/v1/search` | LLM-guided tree traversal search |
+| `POST` | `/v1/query` | Execute RQL query |
+
+### Documents
+
+Manage ingested documents:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/v1/documents` | List all documents |
+| `GET` | `/v1/documents/{id}` | Get document details |
+| `DELETE` | `/v1/documents/{id}` | Delete a document |
+| `GET` | `/v1/documents/{id}/nodes` | Get document nodes |
+| `GET` | `/v1/documents/{id}/tree` | Get document tree |
+
+### Authentication (when enabled)
+
+Manage API keys:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/v1/auth/keys` | Create an API key |
+| `GET` | `/v1/auth/keys` | List API keys |
+| `GET` | `/v1/auth/keys/{id}` | Get key details |
+| `POST` | `/v1/auth/keys/{id}/revoke` | Revoke a key |
+| `POST` | `/v1/auth/keys/{id}/rotate` | Rotate a key |
+| `DELETE` | `/v1/auth/keys/{id}` | Delete a key |
+
+## Common Request Patterns
+
+### Create a Table First
+
+Before ingesting documents, create a table:
+
+```bash
+# 1. Create a table
+curl -X POST http://localhost:4444/v1/tables \
+  -H "Content-Type: application/json" \
+  -d '{"name": "My Documents"}'
+
+# Response includes table ID
+{"id": "tbl_abc123", ...}
+```
+
+### Ingest Documents
+
+Use the table ID when ingesting:
+
+```bash
+# 2. Ingest a document
+curl -X POST http://localhost:4444/v1/ingest/text \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "My Document",
+    "table_id": "tbl_abc123",
+    "content": "# Heading\n\nContent here..."
+  }'
+```
+
+### Search Content
+
+Search across all documents or filter by table:
+
+```bash
+# 3. Search with LLM reasoning
+curl -X POST http://localhost:4444/v1/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What is the main topic?",
+    "table_id": "tbl_abc123"
+  }'
+```
+
+## Response Format
+
+Successful responses return the requested data directly:
+
+```json
+{
+  "id": "doc_abc123",
+  "title": "My Document",
+  "total_nodes": 5,
+  "max_depth": 2
+}
+```
+
+Error responses follow a consistent structure:
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Document not found: doc_xyz"
+  }
+}
+```
+
+## IDs and References
+
+ReasonDB uses prefixed IDs for clarity:
+
+| Prefix | Resource |
+|--------|----------|
+| `tbl_` | Table |
+| `doc_` | Document |
+| `node_` | Node |
+
+## Health Check
+
+Verify the server is running:
+
+```bash
+curl http://localhost:4444/health
+# Returns: OK
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Error Handling" icon="triangle-exclamation" href="/api-reference/errors">
+    Understand error responses
+  </Card>
+  <Card title="Tables API" icon="table" href="/api-reference/tables/create-table">
+    Create and manage tables
+  </Card>
+  <Card title="Ingestion API" icon="file-arrow-up" href="/api-reference/ingestion/ingest-text">
+    Ingest documents
+  </Card>
+  <Card title="Search API" icon="magnifying-glass" href="/api-reference/search/search">
+    Search with LLM reasoning
+  </Card>
+</CardGroup>

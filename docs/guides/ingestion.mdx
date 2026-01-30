@@ -1,0 +1,293 @@
+---
+title: Document Ingestion
+description: Learn how to ingest documents from text, files, and URLs into ReasonDB
+---
+
+ReasonDB supports multiple ingestion methods to import your documents. Each method creates a hierarchical tree structure with LLM-generated summaries for intelligent navigation.
+
+## Ingestion Overview
+
+<Mermaid>
+{`flowchart LR
+    subgraph Sources
+        Text[Text/Markdown]
+        File[PDF/Word/Excel]
+        URL[Web Pages/YouTube]
+    end
+
+    subgraph Pipeline
+        Extract[Extract Text]
+        Chunk[Chunk by Structure]
+        Tree[Build Tree]
+        Summary[LLM Summarize]
+    end
+
+    subgraph Storage
+        DB[(ReasonDB)]
+        Index[BM25 Index]
+    end
+
+    Text --> Extract
+    File --> Extract
+    URL --> Extract
+    Extract --> Chunk --> Tree --> Summary --> DB
+    Summary --> Index`}
+</Mermaid>
+
+## Prerequisites
+
+Before ingesting documents, create a table to organize them:
+
+```bash
+curl -X POST http://localhost:4444/v1/tables \
+  -H "Content-Type: application/json" \
+  -d '{"name": "My Documents"}'
+```
+
+Save the returned `id` (e.g., `tbl_abc123`) for use in ingestion requests.
+
+## Ingest Text
+
+The simplest method is ingesting plain text or Markdown directly:
+
+```bash
+curl -X POST http://localhost:4444/v1/ingest/text \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Project Documentation",
+    "table_id": "tbl_abc123",
+    "content": "# Project Overview\n\nThis project aims to...\n\n## Features\n\n### Feature 1\nDescription...",
+    "tags": ["documentation", "internal"],
+    "author": "Engineering Team"
+  }'
+```
+
+### Parameters
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `title` | Yes | Document title |
+| `table_id` | Yes | Table ID to assign the document to |
+| `content` | Yes | Plain text or Markdown content |
+| `generate_summaries` | No | Generate LLM summaries (default: true) |
+| `tags` | No | Array of tags for filtering |
+| `author` | No | Document author |
+| `metadata` | No | Custom key-value metadata |
+
+### Markdown Structure
+
+ReasonDB uses Markdown headings to build the tree structure:
+
+```markdown
+# Document Title (Root Node)
+
+Introduction paragraph...
+
+## Chapter 1 (Depth 1)
+
+Chapter content...
+
+### Section 1.1 (Depth 2)
+
+Section content...
+
+## Chapter 2 (Depth 1)
+
+More content...
+```
+
+<Tip>
+Use clear heading hierarchy for better tree structure. Each heading becomes a node with its content and any nested content as children.
+</Tip>
+
+## Ingest Files
+
+Upload PDF, Word, Excel, PowerPoint, images, and audio files:
+
+```bash
+curl -X POST http://localhost:4444/v1/ingest/file \
+  -F "file=@/path/to/document.pdf" \
+  -F "table_id=tbl_abc123"
+```
+
+### Supported Formats
+
+| Format | Extension | Notes |
+|--------|-----------|-------|
+| PDF | `.pdf` | Text extraction, structure preserved |
+| Word | `.docx`, `.doc` | Headers become tree nodes |
+| Excel | `.xlsx`, `.xls` | Each sheet as a section |
+| PowerPoint | `.pptx` | Each slide as a node |
+| Images | `.png`, `.jpg`, `.gif` | OCR text extraction |
+| Audio | `.mp3`, `.wav` | Transcription via Whisper |
+| HTML | `.html` | Structure from headings |
+| Markdown | `.md` | Native support |
+
+<Note>
+File ingestion uses MarkItDown under the hood for format conversion.
+</Note>
+
+### Example: Ingest a PDF
+
+```bash
+curl -X POST http://localhost:4444/v1/ingest/file \
+  -F "file=@research-paper.pdf" \
+  -F "table_id=tbl_research"
+```
+
+Response:
+```json
+{
+  "document_id": "doc_abc123",
+  "title": "Research Paper Title",
+  "total_nodes": 28,
+  "max_depth": 3,
+  "stats": {
+    "chars_extracted": 45000,
+    "chunks_created": 15,
+    "nodes_created": 28,
+    "summaries_generated": 28,
+    "total_time_ms": 12500
+  }
+}
+```
+
+## Ingest URLs
+
+Fetch and ingest content from web pages or YouTube videos:
+
+```bash
+curl -X POST http://localhost:4444/v1/ingest/url \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://example.com/article",
+    "table_id": "tbl_abc123"
+  }'
+```
+
+### Supported URL Types
+
+| Type | Example | Notes |
+|------|---------|-------|
+| Web Pages | `https://example.com/article` | HTML structure preserved |
+| YouTube | `https://youtube.com/watch?v=...` | Transcript extracted |
+| GitHub | `https://github.com/org/repo` | README and docs |
+
+### Example: Ingest a YouTube Video
+
+```bash
+curl -X POST http://localhost:4444/v1/ingest/url \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "table_id": "tbl_videos"
+  }'
+```
+
+The video transcript will be extracted and organized into a searchable tree.
+
+## Metadata and Tags
+
+Add metadata and tags during ingestion for filtering:
+
+```bash
+curl -X POST http://localhost:4444/v1/ingest/text \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "NDA Agreement",
+    "table_id": "tbl_legal",
+    "content": "...",
+    "tags": ["nda", "confidential", "2024"],
+    "author": "Legal Team",
+    "metadata": {
+      "contract_type": "nda",
+      "value_usd": 50000,
+      "parties": ["Acme Corp", "Beta Inc"],
+      "effective_date": "2024-01-15"
+    }
+  }'
+```
+
+You can then filter by these in search and queries:
+
+```bash
+# Search within tagged documents
+curl -X POST http://localhost:4444/v1/search \
+  -d '{"query": "confidentiality clause", "tags": ["nda"]}'
+
+# Query by metadata
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM legal WHERE metadata.contract_type = '\''nda'\''"}'
+```
+
+## Disable LLM Summaries
+
+For faster ingestion without LLM processing:
+
+```bash
+curl -X POST http://localhost:4444/v1/ingest/text \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Quick Import",
+    "table_id": "tbl_abc123",
+    "content": "...",
+    "generate_summaries": false
+  }'
+```
+
+<Warning>
+Disabling summaries significantly reduces search quality since the LLM won't have summaries to navigate by. Only use this for documents you'll query by metadata/tags rather than semantic search.
+</Warning>
+
+## Viewing Ingested Documents
+
+After ingestion, you can inspect the document structure:
+
+### List All Documents
+
+```bash
+curl http://localhost:4444/v1/documents
+```
+
+### Get Document Details
+
+```bash
+curl http://localhost:4444/v1/documents/doc_abc123
+```
+
+### View Tree Structure
+
+```bash
+curl http://localhost:4444/v1/documents/doc_abc123/tree
+```
+
+Returns the full hierarchical tree with summaries:
+
+```json
+{
+  "id": "node_root",
+  "title": "Document Title",
+  "summary": "This document covers...",
+  "depth": 0,
+  "children": [
+    {
+      "id": "node_ch1",
+      "title": "Chapter 1",
+      "summary": "Introduction to...",
+      "depth": 1,
+      "children": [...]
+    }
+  ]
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Search Guide" icon="magnifying-glass" href="/guides/search">
+    Search your ingested documents
+  </Card>
+  <Card title="Tables Guide" icon="table" href="/guides/tables">
+    Organize documents with tables
+  </Card>
+</CardGroup>

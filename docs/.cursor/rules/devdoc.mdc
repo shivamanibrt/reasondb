@@ -1,0 +1,115 @@
+---
+description: Rules for writing DevDoc documentation
+globs: ["**/*.mdx", "**/docs.json", "**/theme.json"]
+---
+
+# DevDoc Documentation Rules
+
+## Core Principle: Search Before Generate
+
+**CRITICAL: ALWAYS search and read source files before generating or updating documentation.**
+
+```
+┌─────────────────────────────────────────┐
+│ DOCUMENTATION GENERATION FLOW           │
+├─────────────────────────────────────────┤
+│ 1. SEARCH for relevant source files     │
+│ 2. READ the files found                 │
+│ 3. GENERATE from real data only         │
+│ 4. FLAG if info not found               │
+└─────────────────────────────────────────┘
+```
+
+**Never hallucinate content. If source files not found:**
+- Offer to auto-correct the plan
+- Suggest renaming to match what exists
+- Mark as TODO
+- Ask user for file path
+
+## MDX File Structure
+
+All MDX files must have:
+1. YAML frontmatter with `title` and `description`
+2. Clear introduction paragraph (no heading)
+3. Structured content with H2/H3 headings
+4. Component usage for visual hierarchy
+
+## Available Components
+
+### Callouts
+- `<Note>` - Additional information
+- `<Tip>` - Helpful hints
+- `<Warning>` - Important cautions
+- `<Info>` - General information
+
+### Layout
+- `<CardGroup cols={n}>` - Grid of cards (n = 1-4)
+- `<Card title="..." icon="..." href="...">` - Navigation card
+- `<Steps>` with `<Step title="...">` - Numbered steps
+- `<Tabs>` with `<Tab title="...">` - Tabbed content
+- `<AccordionGroup>` with `<Accordion title="...">` - Collapsible
+
+### Code
+- Use fenced code blocks with language
+- Add filename with `title` attribute when helpful
+- Include copy button for terminal commands
+
+## Style Guidelines
+
+1. Write in second person ("you can", "your project")
+2. Use active voice
+3. Keep paragraphs short (2-4 sentences)
+4. Include practical examples
+5. Link to related documentation
+6. End guides with "Next Steps" section
+
+## docs.json Best Practices
+
+1. Group related pages together
+2. Use descriptive group names
+3. Order pages from basic to advanced
+4. Use Phosphor icons for groups
+
+## Common Mistakes to Avoid
+
+- Missing frontmatter
+- Using H1 headings (title comes from frontmatter)
+- Inconsistent component usage
+- Missing code language tags
+- Broken internal links
+
+## Frontmatter Template
+
+```yaml
+---
+title: "Page Title"
+description: "Brief description for SEO (under 160 chars)"
+---
+```
+
+## Page Template
+
+```mdx
+---
+title: "Title"
+description: "Description"
+---
+
+Introduction paragraph explaining what this page covers.
+
+## Section One
+
+Content with components as needed.
+
+## Section Two
+
+More content.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Related" href="/path">
+    Description
+  </Card>
+</CardGroup>
+```

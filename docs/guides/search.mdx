@@ -1,0 +1,257 @@
+---
+title: LLM-Guided Search
+description: Learn how to use ReasonDB's intelligent tree traversal search
+---
+
+ReasonDB's search is fundamentally different from traditional keyword or vector search. An LLM navigates your document trees, choosing branches based on node summaries until it finds relevant content and extracts answers.
+
+## Basic Search
+
+```bash
+curl -X POST http://localhost:4444/v1/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What are the benefits of machine learning?"}'
+```
+
+Response:
+```json
+{
+  "results": [{
+    "node_id": "node_xyz",
+    "document_id": "doc_abc",
+    "path": [
+      {"node_id": "node_root", "title": "ML Handbook"},
+      {"node_id": "node_ch1", "title": "Chapter 1: Introduction"}
+    ],
+    "content": "Machine learning offers several key benefits...",
+    "answer": "The main benefits of machine learning include automation of complex tasks, pattern recognition in large datasets, and predictive capabilities.",
+    "confidence": 0.89
+  }],
+  "stats": {
+    "nodes_visited": 8,
+    "nodes_pruned": 12,
+    "llm_calls": 5,
+    "total_time_ms": 2340
+  }
+}
+```
+
+## How Search Works
+
+<Mermaid>
+{`sequenceDiagram
+    participant User
+    participant API
+    participant LLM
+    participant DB
+
+    User->>API: Query: What is backprop?
+    API->>DB: Get root node summaries
+    DB-->>API: Node summaries
+    API->>LLM: Which nodes are relevant?
+    LLM-->>API: Neural Networks 0.9, Algorithms 0.4
+    Note over API: Prune low confidence branches
+    API->>DB: Get Neural Networks children
+    DB-->>API: Child summaries
+    API->>LLM: Which children are relevant?
+    LLM-->>API: Backpropagation 0.95
+    API->>DB: Get leaf content
+    API->>LLM: Extract answer from content
+    LLM-->>API: Backpropagation is...
+    API-->>User: Results + path + confidence`}
+</Mermaid>
+
+## Search Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `query` | string | required | Natural language question |
+| `document_id` | string | null | Search within specific document |
+| `table_id` | string | null | Restrict to specific table |
+| `tags` | string[] | null | Filter by document tags |
+| `author` | string | null | Filter by author |
+| `metadata` | object | null | Filter by metadata fields |
+| `max_depth` | int | 10 | Maximum tree depth to traverse |
+| `beam_width` | int | 3 | Branches to explore in parallel |
+| `min_confidence` | float | 0.3 | Prune branches below this confidence |
+| `limit` | int | 10 | Maximum results to return |
+
+## Filtering Search
+
+### By Table
+
+Search only within a specific table:
+
+```bash
+curl -X POST http://localhost:4444/v1/search \
+  -d '{
+    "query": "confidentiality obligations",
+    "table_id": "tbl_legal"
+  }'
+```
+
+### By Document
+
+Search within a single document:
+
+```bash
+curl -X POST http://localhost:4444/v1/search \
+  -d '{
+    "query": "return policy",
+    "document_id": "doc_terms_of_service"
+  }'
+```
+
+### By Tags
+
+Filter to documents with specific tags:
+
+```bash
+curl -X POST http://localhost:4444/v1/search \
+  -d '{
+    "query": "payment terms",
+    "tags": ["nda", "confidential"]
+  }'
+```
+
+### By Metadata
+
+Filter by custom metadata fields:
+
+```bash
+curl -X POST http://localhost:4444/v1/search \
+  -d '{
+    "query": "liability clause",
+    "metadata": {
+      "contract_type": "service_agreement",
+      "value_usd": 100000
+    }
+  }'
+```
+
+## Tuning Search Quality
+
+### Beam Width
+
+Controls how many branches to explore in parallel at each level:
+
+```bash
+# Narrow search (faster, may miss results)
+curl -X POST http://localhost:4444/v1/search \
+  -d '{"query": "...", "beam_width": 1}'
+
+# Wide search (slower, more thorough)
+curl -X POST http://localhost:4444/v1/search \
+  -d '{"query": "...", "beam_width": 5}'
+```
+
+<Tip>
+Use `beam_width: 1` for simple factual queries and `beam_width: 5` for complex questions that may have multiple relevant sections.
+</Tip>
+
+### Min Confidence
+
+Prune branches with confidence below this threshold:
+
+```bash
+# Strict pruning (faster, more focused)
+curl -X POST http://localhost:4444/v1/search \
+  -d '{"query": "...", "min_confidence": 0.5}'
+
+# Relaxed pruning (slower, explores more)
+curl -X POST http://localhost:4444/v1/search \
+  -d '{"query": "...", "min_confidence": 0.2}'
+```
+
+### Max Depth
+
+Limit how deep into the tree to traverse:
+
+```bash
+# Shallow search (faster, high-level results)
+curl -X POST http://localhost:4444/v1/search \
+  -d '{"query": "...", "max_depth": 3}'
+
+# Deep search (slower, detailed results)
+curl -X POST http://localhost:4444/v1/search \
+  -d '{"query": "...", "max_depth": 15}'
+```
+
+## Understanding Results
+
+### Path Breadcrumbs
+
+Each result includes the path the LLM took to find it:
+
+```json
+{
+  "path": [
+    {"node_id": "node_1", "title": "ML Handbook", "reasoning": "Document about ML"},
+    {"node_id": "node_5", "title": "Chapter 3: Training", "reasoning": "Covers training methods"},
+    {"node_id": "node_12", "title": "Backpropagation", "reasoning": "Directly answers the query"}
+  ]
+}
+```
+
+This helps you understand why the result was selected and provides context.
+
+### Confidence Scores
+
+Confidence (0.0 to 1.0) indicates how relevant the LLM believes the result is:
+
+| Score | Interpretation |
+|-------|----------------|
+| 0.9+ | High confidence, directly answers query |
+| 0.7-0.9 | Good match, likely relevant |
+| 0.5-0.7 | Moderate relevance |
+| 0.3-0.5 | Low confidence, tangentially related |
+| Below 0.3 | Pruned, not returned |
+
+### Extracted Answers
+
+The `answer` field contains the LLM's extracted answer from the content:
+
+```json
+{
+  "content": "Backpropagation is an algorithm for training neural networks by computing gradients...",
+  "answer": "Backpropagation is an algorithm used to train neural networks by computing gradients of the loss function with respect to network weights, enabling optimization through gradient descent."
+}
+```
+
+## Search vs RQL Queries
+
+| Feature | Search (`/v1/search`) | Query (`/v1/query`) |
+|---------|----------------------|---------------------|
+| Input | Natural language | SQL-like RQL |
+| Method | LLM tree traversal | Filter + BM25/LLM |
+| Best for | Complex questions | Filtering, aggregations |
+| Answer extraction | Yes | Optional (REASON clause) |
+| Speed | Slower (LLM calls) | Faster for simple queries |
+
+For complex filtering combined with semantic search, use RQL with the REASON clause:
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -d '{
+    "query": "SELECT * FROM legal WHERE author = '\''Alice'\'' REASON '\''What are the termination clauses?'\''"
+  }'
+```
+
+## Performance Tips
+
+1. **Use specific tables**: Narrowing to a table reduces the search space
+2. **Add tags**: Filter by tags to focus the search
+3. **Adjust beam width**: Lower for simple queries, higher for complex
+4. **Set appropriate depth**: Shallow for overviews, deep for details
+5. **Cache common queries**: Results are cached for repeated REASON queries
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="RQL Query Language" icon="terminal" href="/guides/rql">
+    Combine filtering with semantic search
+  </Card>
+  <Card title="Tables Guide" icon="table" href="/guides/tables">
+    Organize documents for better search
+  </Card>
+</CardGroup>

@@ -1,0 +1,134 @@
+---
+title: Introduction to ReasonDB
+description: A reasoning-native database for AI agent workflows with LLM-guided tree traversal
+---
+
+ReasonDB is a database that thinks, not just calculates. Unlike Vector DBs (mathematical similarity) or SQL DBs (relational algebra), ReasonDB optimizes for **tree traversal** and **LLM-driven context management** - the patterns AI agents actually need.
+
+## Why ReasonDB?
+
+Traditional databases struggle with AI agent workflows:
+
+| Approach | Best For | Limitation |
+|----------|----------|------------|
+| **Vector DB** | Simple factual queries | Loses structure, "similar" ≠ "relevant" |
+| **SQL DB** | Structured data | Can't handle unstructured text |
+| **Graph DB** | Relationships | Requires explicit entity extraction |
+| **ReasonDB** | Complex reasoning | Optimized for AI agent workflows |
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Hierarchical Document Storage" icon="tree">
+    Documents stored as navigable trees, not flat chunks. Preserves structure and context.
+  </Card>
+  <Card title="LLM-Guided Retrieval" icon="robot">
+    AI reasons through the tree structure using summaries, not just similarity scores.
+  </Card>
+  <Card title="Parallel Branch Exploration" icon="arrows-split">
+    Concurrent traversal using beam search for efficient multi-path exploration.
+  </Card>
+  <Card title="RQL Query Language" icon="magnifying-glass">
+    SQL-like queries with SEARCH (BM25) and REASON (LLM) clauses.
+  </Card>
+  <Card title="API Key Authentication" icon="key">
+    Secure production deployments with API keys and fine-grained permissions.
+  </Card>
+  <Card title="PostgreSQL-like Config" icon="gear">
+    Familiar configuration experience with persistent settings and CLI commands.
+  </Card>
+</CardGroup>
+
+## How It Works
+
+<Mermaid>
+{`flowchart LR
+    subgraph Ingest["1. Ingest"]
+        Doc[Document] --> Parse[Parse & Chunk]
+        Parse --> Tree[Build Tree]
+        Tree --> Sum[LLM Summarize]
+    end
+
+    subgraph Search["2. Search"]
+        Query[Query] --> LLM[LLM Evaluates]
+        LLM --> Branch[Choose Branches]
+        Branch --> Answer[Extract Answer]
+    end
+
+    Sum --> Search`}
+</Mermaid>
+
+1. **Ingest**: Documents are parsed, chunked, and organized into hierarchical trees with LLM-generated summaries
+2. **Search**: The LLM traverses the tree, choosing branches based on summaries until it finds relevant content
+3. **Return**: Results include the content, extracted answers, and confidence scores
+
+## Quick Example
+
+```bash
+# Configure your LLM API key (stored securely)
+reasondb config set llm.provider anthropic
+reasondb config set llm.api_key sk-ant-xxxxx
+
+# Start the server
+reasondb serve
+
+# Create a table
+curl -X POST http://localhost:4444/v1/tables \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Research Papers"}'
+
+# Ingest a document
+curl -X POST http://localhost:4444/v1/ingest/text \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "AI Fundamentals",
+    "table_id": "tbl_...",
+    "content": "# AI Fundamentals\n\nArtificial Intelligence is..."
+  }'
+
+# Search with LLM reasoning
+curl -X POST http://localhost:4444/v1/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What is machine learning?"}'
+```
+
+## Getting Started
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket-launch" href="/quickstart">
+    Get up and running in 5 minutes
+  </Card>
+  <Card title="Core Concepts" icon="book-open" href="/concepts">
+    Understand trees, nodes, and reasoning
+  </Card>
+  <Card title="Configuration" icon="gear" href="/guides/configuration">
+    Configure LLM providers and server settings
+  </Card>
+  <Card title="Authentication" icon="key" href="/guides/authentication">
+    Secure your API with API keys
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/introduction">
+    Explore the full REST API
+  </Card>
+  <Card title="Guides" icon="map" href="/guides/ingestion">
+    Learn common workflows
+  </Card>
+</CardGroup>
+
+## Supported LLM Providers
+
+ReasonDB supports multiple LLM providers out of the box:
+
+- **Anthropic Claude** - Set `ANTHROPIC_API_KEY`
+- **OpenAI** - Set `OPENAI_API_KEY`
+- **Google Gemini** - Set `GEMINI_API_KEY`
+- **Cohere** - Set `COHERE_API_KEY`
+
+## Tech Stack
+
+ReasonDB is built with Rust for performance and reliability:
+
+- **Storage**: `redb` - Pure Rust, ACID-compliant embedded database
+- **HTTP Server**: `axum` - Fast, ergonomic web framework
+- **Async Runtime**: `tokio` - Parallel branch exploration
+- **LLM Integration**: `rig-core` - Multi-provider LLM abstraction

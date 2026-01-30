@@ -1,0 +1,362 @@
+---
+title: RQL Query Language
+description: Use SQL-like queries with SEARCH and REASON clauses
+---
+
+ReasonDB Query Language (RQL) provides SQL-like syntax for querying documents. It combines traditional filtering with BM25 full-text search and LLM semantic reasoning.
+
+## Basic Syntax
+
+```sql
+SELECT [fields] FROM <table>
+[WHERE <conditions>]
+[SEARCH '<keywords>']
+[REASON '<question>']
+[RELATED TO '<document_id>' [AS <relation_type>]]
+[GROUP BY <field>]
+[ORDER BY <field>]
+[LIMIT <n>]
+[OFFSET <n>]
+```
+
+## Query Endpoint
+
+```bash
+curl -X POST http://localhost:4444/v1/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "SELECT * FROM legal WHERE author = '\''Alice'\'' LIMIT 10"}'
+```
+
+## SELECT Clauses
+
+### Select All Fields
+
+```sql
+SELECT * FROM legal
+```
+
+### Select Specific Fields
+
+```sql
+SELECT title, author, tags FROM legal
+```
+
+### Aggregate Functions
+
+```sql
+SELECT COUNT(*) FROM legal
+SELECT COUNT(*) AS total, author FROM legal GROUP BY author
+```
+
+## WHERE Clause
+
+Filter documents by metadata fields:
+
+### Basic Comparisons
+
+```sql
+-- String equality
+SELECT * FROM legal WHERE author = 'Alice'
+
+-- Numeric comparison
+SELECT * FROM contracts WHERE metadata.value_usd > 50000
+
+-- Boolean
+SELECT * FROM docs WHERE metadata.confidential = true
+```
+
+### Array Contains (Tags)
+
+```sql
+-- Documents with 'nda' tag
+SELECT * FROM legal WHERE tags CONTAINS 'nda'
+
+-- Documents with any of these tags
+SELECT * FROM legal WHERE tags CONTAINS ANY ('nda', 'confidential')
+```
+
+### Logical Operators
+
+```sql
+-- AND
+SELECT * FROM legal
+WHERE author = 'Alice' AND tags CONTAINS 'nda'
+
+-- OR
+SELECT * FROM contracts
+WHERE metadata.type = 'nda' OR metadata.type = 'msa'
+
+-- NOT
+SELECT * FROM legal WHERE NOT author = 'Bob'
+```
+
+### LIKE Pattern Matching
+
+```sql
+-- Prefix match
+SELECT * FROM docs WHERE title LIKE 'Contract%'
+
+-- Contains
+SELECT * FROM docs WHERE title LIKE '%Agreement%'
+```
+
+## SEARCH Clause
+
+Use BM25 full-text search for keyword matching:
+
+```sql
+SELECT * FROM legal SEARCH 'payment terms'
+```
+
+This performs fast keyword search across document content and returns results ranked by BM25 score.
+
+### Combined with WHERE
+
+```sql
+SELECT * FROM legal
+WHERE author = 'Legal Team'
+SEARCH 'confidentiality obligations'
+```
+
+### Search Results
+
+```json
+{
+  "documents": [{
+    "id": "doc_abc",
+    "title": "NDA Agreement",
+    "score": 12.5,
+    "highlights": [
+      "The <b>confidentiality</b> <b>obligations</b> shall remain..."
+    ]
+  }],
+  "total_count": 3,
+  "execution_time_ms": 45
+}
+```
+
+## REASON Clause
+
+Use LLM semantic search for intelligent answer extraction:
+
+```sql
+SELECT * FROM legal REASON 'What are the termination conditions?'
+```
+
+This uses the LLM to find relevant content and extract answers.
+
+### Combined with Filters
+
+```sql
+SELECT * FROM legal
+WHERE tags CONTAINS 'nda'
+REASON 'What are the confidentiality obligations?'
+```
+
+### REASON Results
+
+```json
+{
+  "documents": [{
+    "id": "doc_abc",
+    "title": "NDA Agreement",
+    "answer": "The confidentiality obligations require parties to...",
+    "confidence": 0.92,
+    "highlights": ["Section 3.1: Confidentiality..."]
+  }],
+  "total_count": 1,
+  "execution_time_ms": 2340
+}
+```
+
+## SEARCH vs REASON
+
+| Feature | SEARCH | REASON |
+|---------|--------|--------|
+| Method | BM25 keyword matching | LLM tree traversal |
+| Speed | Fast (~50ms) | Slower (~2-5s) |
+| Best for | Known keywords | Questions, concepts |
+| Results | Keyword highlights | Extracted answers |
+| Ranking | BM25 score | Confidence score |
+
+<Tip>
+Use SEARCH for keyword lookup and filtering. Use REASON when you need the LLM to understand and answer a question.
+</Tip>
+
+## RELATED TO Clause
+
+Filter documents by their relationships to other documents:
+
+```sql
+-- All documents related to a specific document
+SELECT * FROM legal RELATED TO 'doc_abc123'
+
+-- Filter by relationship type
+SELECT * FROM contracts RELATED TO 'doc_master' AS references
+```
+
+### Shorthand Syntax
+
+Use relationship keywords directly:
+
+```sql
+-- Documents that this document references
+SELECT * FROM contracts REFERENCES 'doc_abc123'
+
+-- Documents superseded by this one
+SELECT * FROM legal SUPERSEDES 'doc_old_version'
+```
+
+### Supported Relationship Types
+
+| Keyword | Description |
+|---------|-------------|
+| `REFERENCES` | Document cites/references another |
+| `REFERENCED_BY` | Document is cited by another |
+| `SUPERSEDES` | Document replaces another |
+| `SUPERSEDED_BY` | Document is replaced by another |
+| `PARENT_OF` | Document is parent of another |
+| `CHILD_OF` | Document is child of another |
+
+<Note>
+See the [Document Relationships Guide](/guides/relationships) for creating and managing relationships.
+</Note>
+
+## GROUP BY and Aggregations
+
+### Count by Field
+
+```sql
+SELECT COUNT(*) AS count, author
+FROM legal
+GROUP BY author
+```
+
+Result:
+```json
+{
+  "aggregates": [
+    {"name": "count", "value": 15, "group_key": [["author", "Alice"]]},
+    {"name": "count", "value": 8, "group_key": [["author", "Bob"]]}
+  ]
+}
+```
+
+### Multiple Aggregations
+
+```sql
+SELECT COUNT(*) AS total, AVG(metadata.value_usd) AS avg_value
+FROM contracts
+WHERE metadata.type = 'nda'
+```
+
+## ORDER BY
+
+Sort results by field:
+
+```sql
+SELECT * FROM docs ORDER BY created_at DESC
+SELECT * FROM contracts ORDER BY metadata.value_usd ASC
+```
+
+## LIMIT and OFFSET
+
+Paginate results:
+
+```sql
+-- First 10 results
+SELECT * FROM legal LIMIT 10
+
+-- Page 2 (skip first 10)
+SELECT * FROM legal LIMIT 10 OFFSET 10
+```
+
+## EXPLAIN
+
+View the query execution plan:
+
+```sql
+EXPLAIN SELECT * FROM legal WHERE author = 'Alice' SEARCH 'payment'
+```
+
+Result:
+```json
+{
+  "explain": {
+    "steps": [
+      {"step_type": "TableScan", "description": "Scan table 'legal'", "estimated_cost": 20},
+      {"step_type": "Filter", "description": "author = 'Alice'", "estimated_cost": 5},
+      {"step_type": "Search", "description": "BM25 search 'payment'", "estimated_cost": 30}
+    ],
+    "estimated_rows": 15,
+    "indexes_used": ["author_index", "text_index"]
+  }
+}
+```
+
+## Complete Examples
+
+### Legal Document Search
+
+```sql
+SELECT * FROM legal_contracts
+WHERE author = 'Legal Team'
+  AND tags CONTAINS 'nda'
+  AND metadata.value_usd > 10000
+SEARCH 'termination clause'
+LIMIT 5
+```
+
+### Question Answering
+
+```sql
+SELECT * FROM knowledge_base
+WHERE tags CONTAINS ANY ('faq', 'documentation')
+REASON 'How do I reset my password?'
+LIMIT 1
+```
+
+### Document Statistics
+
+```sql
+SELECT COUNT(*) AS total,
+       AVG(total_nodes) AS avg_nodes,
+       author
+FROM all_documents
+GROUP BY author
+ORDER BY total DESC
+```
+
+### Paginated Results
+
+```sql
+SELECT title, author, created_at
+FROM research_papers
+WHERE tags CONTAINS 'machine-learning'
+ORDER BY created_at DESC
+LIMIT 20 OFFSET 40
+```
+
+## Error Handling
+
+Invalid queries return parse errors:
+
+```json
+{
+  "error": {
+    "code": "BAD_REQUEST",
+    "message": "Invalid query: unexpected token 'FRMO' at position 15, expected 'FROM'"
+  }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Search Guide" icon="magnifying-glass" href="/guides/search">
+    Use the Search API for simpler queries
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/introduction">
+    Full API documentation
+  </Card>
+</CardGroup>
