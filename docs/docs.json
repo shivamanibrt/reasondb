@@ -28,7 +28,8 @@
               "guides/tables",
               "guides/relationships",
               "guides/configuration",
-              "guides/authentication"
+              "guides/authentication",
+              "guides/rate-limiting"
             ]
           },
           {

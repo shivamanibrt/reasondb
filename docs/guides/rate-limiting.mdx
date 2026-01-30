@@ -1,0 +1,219 @@
+---
+title: Rate Limiting
+description: Protect your ReasonDB deployment with built-in rate limiting
+---
+
+ReasonDB includes a token bucket rate limiter to protect your server from abuse and ensure fair usage across clients.
+
+## Overview
+
+Rate limiting is **enabled by default** with sensible defaults:
+
+| Limit | Default | Description |
+|-------|---------|-------------|
+| Per Minute | 60 | Sustained request rate |
+| Per Hour | 1000 | Total hourly requests |
+| Burst | 10 | Instant burst capacity |
+
+## How It Works
+
+ReasonDB uses a **token bucket algorithm**:
+
+1. Each client (identified by API key or IP) has a bucket of tokens
+2. Each request consumes one token
+3. Tokens refill at a steady rate (requests per minute / 60)
+4. Burst capacity allows short spikes above the average rate
+5. Hourly limits prevent sustained abuse
+
+## Configuration
+
+### Via CLI Flags
+
+```bash
+# Custom rate limits
+reasondb serve \
+  --rate-limit-rpm 100 \
+  --rate-limit-rph 2000 \
+  --rate-limit-burst 20
+
+# Disable rate limiting
+reasondb serve --rate-limit-enabled=false
+```
+
+### Via Environment Variables
+
+```bash
+REASONDB_RATE_LIMIT_ENABLED=true \
+REASONDB_RATE_LIMIT_RPM=100 \
+REASONDB_RATE_LIMIT_RPH=2000 \
+REASONDB_RATE_LIMIT_BURST=20 \
+reasondb serve
+```
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `REASONDB_RATE_LIMIT_ENABLED` | `true` | Enable/disable rate limiting |
+| `REASONDB_RATE_LIMIT_RPM` | `60` | Requests per minute |
+| `REASONDB_RATE_LIMIT_RPH` | `1000` | Requests per hour |
+| `REASONDB_RATE_LIMIT_BURST` | `10` | Burst capacity |
+
+## Rate Limit Headers
+
+Every response includes rate limit headers:
+
+```http
+HTTP/1.1 200 OK
+X-RateLimit-Limit: 60
+X-RateLimit-Remaining: 45
+X-RateLimit-Reset: 30
+```
+
+| Header | Description |
+|--------|-------------|
+| `X-RateLimit-Limit` | Maximum requests per minute |
+| `X-RateLimit-Remaining` | Remaining requests in current window |
+| `X-RateLimit-Reset` | Seconds until the rate limit resets |
+
+## Rate Limit Exceeded (429)
+
+When a client exceeds the rate limit:
+
+```http
+HTTP/1.1 429 Too Many Requests
+Retry-After: 5
+X-RateLimit-Limit: 60
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 30
+
+{
+  "error": {
+    "code": "RATE_LIMITED",
+    "message": "Rate limit exceeded. Try again in 5 seconds.",
+    "retry_after": 5,
+    "limit": 60
+  }
+}
+```
+
+## Client Identification
+
+Clients are identified in this order:
+
+1. **API Key** - From `Authorization: Bearer <key>` or `X-API-Key` header
+2. **IP Address** - From `X-Forwarded-For`, `X-Real-IP`, or connection address
+
+Each unique identifier gets its own rate limit bucket.
+
+## Best Practices
+
+### 1. Handle 429 Responses
+
+Implement exponential backoff when rate limited:
+
+```python
+import time
+import requests
+
+def request_with_retry(url, max_retries=3):
+    for attempt in range(max_retries):
+        response = requests.get(url)
+        
+        if response.status_code == 429:
+            retry_after = int(response.headers.get('Retry-After', 1))
+            time.sleep(retry_after * (2 ** attempt))
+            continue
+            
+        return response
+    
+    raise Exception("Max retries exceeded")
+```
+
+### 2. Monitor Rate Limit Headers
+
+Check remaining requests before making calls:
+
+```javascript
+async function fetchWithRateLimit(url) {
+  const response = await fetch(url);
+  
+  const remaining = parseInt(response.headers.get('X-RateLimit-Remaining'));
+  const reset = parseInt(response.headers.get('X-RateLimit-Reset'));
+  
+  if (remaining < 5) {
+    console.warn(`Low rate limit: ${remaining} requests remaining, resets in ${reset}s`);
+  }
+  
+  return response;
+}
+```
+
+### 3. Batch Requests
+
+Combine multiple operations when possible:
+
+```bash
+# Instead of multiple single queries
+curl -X POST http://localhost:4444/v1/query \
+  -d '{"query": "SELECT * FROM docs WHERE id IN (\"doc1\", \"doc2\", \"doc3\")"}'
+```
+
+### 4. Use Caching
+
+ReasonDB caches query results internally, but consider client-side caching for repeated queries.
+
+## Production Recommendations
+
+### High-Traffic Applications
+
+```bash
+reasondb serve \
+  --rate-limit-rpm 300 \
+  --rate-limit-rph 10000 \
+  --rate-limit-burst 50
+```
+
+### Public APIs
+
+```bash
+# More restrictive for public access
+reasondb serve \
+  --rate-limit-rpm 20 \
+  --rate-limit-rph 200 \
+  --rate-limit-burst 5
+```
+
+### Internal Services
+
+```bash
+# Disable for trusted internal services
+reasondb serve --rate-limit-enabled=false
+```
+
+<Warning>
+Only disable rate limiting for fully trusted internal networks with proper network-level controls.
+</Warning>
+
+## Combining with Authentication
+
+Rate limits apply per API key when authentication is enabled:
+
+```bash
+# Each API key gets its own rate limit bucket
+reasondb serve \
+  --auth-enabled \
+  --master-key "admin-key" \
+  --rate-limit-rpm 60
+```
+
+This allows different clients to have independent rate limits.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/guides/authentication">
+    Secure your API with API keys
+  </Card>
+  <Card title="Configuration" icon="gear" href="/guides/configuration">
+    Full configuration options
+  </Card>
+</CardGroup>

@@ -15,6 +15,7 @@ The ReasonDB API uses conventional HTTP status codes and returns structured erro
 | `401` | Unauthorized - Missing or invalid API key |
 | `403` | Forbidden - Insufficient permissions |
 | `404` | Not Found - Resource doesn't exist |
+| `429` | Too Many Requests - Rate limit exceeded |
 | `422` | Unprocessable Entity - Validation failed |
 | `500` | Internal Server Error - Server-side error |
 | `503` | Service Unavailable - LLM provider error |
@@ -79,6 +80,28 @@ Valid authentication but insufficient permissions.
 - Attempting admin operations with non-admin key
 
 **Solution:** Use an API key with the required permissions. See [Authentication Guide](/guides/authentication) for permission details.
+
+### RATE_LIMITED
+
+Too many requests in the time window.
+
+```json
+{
+  "error": {
+    "code": "RATE_LIMITED",
+    "message": "Rate limit exceeded. Try again in 5 seconds.",
+    "retry_after": 5,
+    "limit": 60
+  }
+}
+```
+
+**Causes:**
+- Exceeded requests per minute limit
+- Exceeded requests per hour limit
+- Burst capacity exhausted
+
+**Solution:** Wait for the `retry_after` period and implement exponential backoff. See [Rate Limiting Guide](/guides/rate-limiting) for details.
 
 ### NOT_FOUND
 

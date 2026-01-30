@@ -6,6 +6,7 @@ use reasondb_core::{
     auth::ApiKeyStore,
     cache::QueryCache,
     llm::{mock::MockReasoner, provider::Reasoner, ReasoningEngine},
+    ratelimit::RateLimitStore,
     store::NodeStore,
     text_index::TextIndex,
 };
@@ -23,6 +24,8 @@ pub struct AppState<R: ReasoningEngine = Reasoner> {
     pub query_cache: Arc<QueryCache>,
     /// API key store for authentication
     pub api_key_store: Arc<ApiKeyStore>,
+    /// Rate limit store
+    pub rate_limit_store: Arc<RateLimitStore>,
     /// Server configuration
     pub config: ServerConfig,
 }
@@ -36,12 +39,14 @@ impl<R: ReasoningEngine> AppState<R> {
         api_key_store: ApiKeyStore,
         config: ServerConfig,
     ) -> Self {
+        let rate_limit_store = RateLimitStore::new(config.rate_limit.clone());
         Self {
             store: Arc::new(store),
             text_index: Arc::new(text_index),
             reasoner: Arc::new(reasoner),
             query_cache: Arc::new(QueryCache::new()),
             api_key_store: Arc::new(api_key_store),
+            rate_limit_store: Arc::new(rate_limit_store),
             config,
         }
     }
@@ -81,6 +86,9 @@ impl AuthConfig {
     }
 }
 
+/// Rate limit configuration (re-exported)
+pub use reasondb_core::ratelimit::RateLimitConfig;
+
 /// Server configuration
 #[derive(Debug, Clone)]
 pub struct ServerConfig {
@@ -98,6 +106,8 @@ pub struct ServerConfig {
     pub generate_summaries: bool,
     /// Authentication configuration
     pub auth: AuthConfig,
+    /// Rate limiting configuration
+    pub rate_limit: RateLimitConfig,
 }
 
 impl Default for ServerConfig {
@@ -110,6 +120,7 @@ impl Default for ServerConfig {
             enable_cors: true,
             generate_summaries: true,
             auth: AuthConfig::default(),
+            rate_limit: RateLimitConfig::default(),
         }
     }
 }

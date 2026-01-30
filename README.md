@@ -263,7 +263,7 @@ reasondb/
 - [x] **Phase 5F**: CLI tool with RQL REPL ✅
 - [x] **Phase 5G**: Configuration management (PostgreSQL-like) ✅
 - [x] **Phase 6A**: Authentication & API keys ✅
-- [ ] **Phase 6B**: Rate limiting
+- [x] **Phase 6B**: Rate limiting ✅
 - [ ] **Phase 6C**: Clustering & replication
 
 ## 🔧 Configuration
@@ -300,6 +300,10 @@ Config file location:
 | `REASONDB_PATH` | Database file path | reasondb.redb |
 | `REASONDB_AUTH_ENABLED` | Enable API key auth | false |
 | `REASONDB_MASTER_KEY` | Admin master key | - |
+| `REASONDB_RATE_LIMIT_ENABLED` | Enable rate limiting | true |
+| `REASONDB_RATE_LIMIT_RPM` | Requests per minute | 60 |
+| `REASONDB_RATE_LIMIT_RPH` | Requests per hour | 1000 |
+| `REASONDB_RATE_LIMIT_BURST` | Burst capacity | 10 |
 
 ## 🔐 Authentication
 
@@ -356,6 +360,56 @@ curl -H "X-API-Key: rdb_live_xxxxx" http://localhost:4444/v1/search ...
 | `query` | Execute RQL queries |
 | `relations` | Manage document relationships |
 | `admin` | Manage API keys |
+
+## ⚡ Rate Limiting
+
+ReasonDB includes built-in rate limiting to protect your server from abuse.
+
+### Configuration
+
+```bash
+# Start server with custom rate limits
+reasondb serve --rate-limit-rpm 100 --rate-limit-rph 2000 --rate-limit-burst 20
+
+# Or via environment
+REASONDB_RATE_LIMIT_RPM=100 REASONDB_RATE_LIMIT_RPH=2000 reasondb serve
+
+# Disable rate limiting
+reasondb serve --rate-limit-enabled=false
+```
+
+### Rate Limit Headers
+
+All responses include rate limit information:
+
+```
+X-RateLimit-Limit: 60        # Requests per minute limit
+X-RateLimit-Remaining: 45    # Remaining requests in window
+X-RateLimit-Reset: 30        # Seconds until limit resets
+```
+
+### 429 Response
+
+When rate limited, the API returns:
+
+```json
+{
+  "error": {
+    "code": "RATE_LIMITED",
+    "message": "Rate limit exceeded. Try again in 5 seconds.",
+    "retry_after": 5,
+    "limit": 60
+  }
+}
+```
+
+### Default Limits
+
+| Limit | Value | Description |
+|-------|-------|-------------|
+| Per Minute | 60 | Sustained request rate |
+| Per Hour | 1000 | Total hourly requests |
+| Burst | 10 | Instant burst capacity |
 
 ## 📄 Documentation
 

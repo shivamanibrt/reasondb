@@ -53,13 +53,16 @@
 pub mod auth;
 pub mod error;
 pub mod openapi;
+pub mod ratelimit;
 pub mod routes;
 pub mod state;
 
 pub use error::{ApiError, ApiResult, ErrorResponse};
 pub use openapi::ApiDoc;
+pub use ratelimit::{rate_limit_middleware, RateLimitError};
 pub use routes::create_routes;
 pub use state::{AppState, AuthConfig, MockAppState, RealAppState, ServerConfig};
+pub use reasondb_core::ratelimit::RateLimitConfig;
 
 use axum::Router;
 use reasondb_core::{
@@ -88,6 +91,19 @@ pub fn create_server<R: ReasoningEngine + Clone + Send + Sync + 'static>(
 
     // Add OpenAPI documentation
     app = app.merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()));
+
+    // Add rate limiting middleware
+    if state.config.rate_limit.enabled {
+        info!("Rate limiting enabled: {} req/min, {} req/hour, burst: {}",
+            state.config.rate_limit.requests_per_minute,
+            state.config.rate_limit.requests_per_hour,
+            state.config.rate_limit.burst_size
+        );
+        app = app.layer(axum::middleware::from_fn_with_state(
+            state.rate_limit_store.clone(),
+            ratelimit::rate_limit_middleware,
+        ));
+    }
 
     // Add middleware
     app = app.layer(TraceLayer::new_for_http());
@@ -179,6 +195,9 @@ pub async fn run_server() -> anyhow::Result<()> {
         info!("Authentication disabled (set REASONDB_AUTH_ENABLED=true to enable)");
     }
 
+    // Load rate limit configuration from environment
+    let rate_limit_config = reasondb_core::ratelimit::RateLimitConfig::from_env();
+
     // Create server config
     let config = ServerConfig {
         host: host.clone(),
@@ -188,6 +207,7 @@ pub async fn run_server() -> anyhow::Result<()> {
         enable_cors: true,
         generate_summaries: true,
         auth: auth_config,
+        rate_limit: rate_limit_config,
     };
 
     let addr = format!("{}:{}", host, port);

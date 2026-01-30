@@ -49,6 +49,7 @@ pub mod engine;
 pub mod error;
 pub mod llm;
 pub mod model;
+pub mod ratelimit;
 pub mod rql;
 pub mod store;
 pub mod text_index;
@@ -63,5 +64,6 @@ pub use model::{
     Document, DocumentId, DocumentRelation, NodeId, NodeMetadata, PageNode, RelationBuilder,
     RelationType, SearchFilter, Table, TableId,
 };
+pub use ratelimit::{RateLimitConfig, RateLimitResult, RateLimitStore, RateLimitTier, RateLimiter};
 pub use store::{NodeStore, StoreStats};
 pub use text_index::{TextIndex, TextSearchResult};

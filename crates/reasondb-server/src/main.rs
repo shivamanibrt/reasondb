@@ -9,7 +9,7 @@ use reasondb_core::{
     store::NodeStore,
     text_index::TextIndex,
 };
-use reasondb_server::{create_server, AppState, AuthConfig, ServerConfig};
+use reasondb_server::{create_server, AppState, AuthConfig, RateLimitConfig, ServerConfig};
 use redb::Database;
 use std::sync::Arc;
 use tracing::{info, Level};
@@ -59,6 +59,22 @@ struct Args {
     /// Master key for admin access (bypasses API key checks)
     #[arg(long, env = "REASONDB_MASTER_KEY")]
     master_key: Option<String>,
+
+    /// Enable rate limiting
+    #[arg(long, env = "REASONDB_RATE_LIMIT_ENABLED", default_value = "true")]
+    rate_limit_enabled: bool,
+
+    /// Rate limit: requests per minute
+    #[arg(long, env = "REASONDB_RATE_LIMIT_RPM", default_value = "60")]
+    rate_limit_rpm: u32,
+
+    /// Rate limit: requests per hour
+    #[arg(long, env = "REASONDB_RATE_LIMIT_RPH", default_value = "1000")]
+    rate_limit_rph: u32,
+
+    /// Rate limit: burst size
+    #[arg(long, env = "REASONDB_RATE_LIMIT_BURST", default_value = "10")]
+    rate_limit_burst: u32,
 
     /// Enable verbose logging
     #[arg(short, long)]
@@ -119,6 +135,14 @@ async fn main() -> anyhow::Result<()> {
         info!("Authentication disabled (use --auth-enabled to enable)");
     }
 
+    // Rate limit configuration
+    let rate_limit_config = RateLimitConfig {
+        enabled: args.rate_limit_enabled,
+        requests_per_minute: args.rate_limit_rpm,
+        requests_per_hour: args.rate_limit_rph,
+        burst_size: args.rate_limit_burst,
+    };
+
     // Create server config
     let config = ServerConfig {
         host: args.host.clone(),
@@ -128,6 +152,7 @@ async fn main() -> anyhow::Result<()> {
         enable_cors: true,
         generate_summaries: !args.no_summaries,
         auth: auth_config,
+        rate_limit: rate_limit_config,
     };
 
     // Create appropriate reasoner based on available API keys
