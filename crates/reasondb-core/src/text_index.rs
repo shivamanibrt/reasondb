@@ -367,9 +367,14 @@ impl TextIndex {
                 .unwrap_or("")
                 .to_string();
 
-            // Create a snippet from content (first 200 chars)
-            let snippet = if content.len() > 200 {
-                Some(format!("{}...", &content[..200]))
+            // Create a snippet from content (first 200 characters)
+            let snippet = if content.chars().count() > 200 {
+                let end = content
+                    .char_indices()
+                    .nth(200)
+                    .map(|(i, _)| i)
+                    .unwrap_or(content.len());
+                Some(format!("{}...", &content[..end]))
             } else if !content.is_empty() {
                 Some(content)
             } else {

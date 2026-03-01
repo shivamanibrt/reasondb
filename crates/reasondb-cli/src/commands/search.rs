@@ -105,8 +105,14 @@ pub async fn run(
                     }
 
                     // Truncate content for display
-                    let content = if result.content.len() > 200 {
-                        format!("{}...", &result.content[..200])
+                    let content = if result.content.chars().count() > 200 {
+                        let end = result
+                            .content
+                            .char_indices()
+                            .nth(200)
+                            .map(|(i, _)| i)
+                            .unwrap_or(result.content.len());
+                        format!("{}...", &result.content[..end])
                     } else {
                         result.content.clone()
                     };

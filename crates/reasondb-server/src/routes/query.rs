@@ -784,7 +784,7 @@ pub async fn execute_query_stream<R: ReasoningEngine + Clone + Send + Sync + 'st
                         tracing::error!("REASON query panicked: {}", msg);
                         let event = Event::default()
                             .event("error")
-                            .data(format!("Internal error: {}", msg));
+                            .data("Query execution failed. Please try again.");
                         let _ = sse_tx_bg.send(event).await;
                     }
                 }

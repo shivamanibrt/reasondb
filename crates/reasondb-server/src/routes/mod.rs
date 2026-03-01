@@ -17,9 +17,10 @@ pub mod tables;
 
 use axum::{
     routing::{delete, get, patch, post},
-    Router,
+    Json, Router,
 };
 use reasondb_core::llm::ReasoningEngine;
+use serde::Serialize;
 use std::sync::Arc;
 
 use crate::state::AppState;
@@ -131,7 +132,17 @@ fn v1_routes<R: ReasoningEngine + Clone + Send + Sync + 'static>(
         .with_state(state)
 }
 
+/// Health check response
+#[derive(Serialize)]
+struct HealthResponse {
+    status: &'static str,
+    version: &'static str,
+}
+
 /// Health check endpoint
-async fn health_check() -> &'static str {
-    "OK"
+async fn health_check() -> Json<HealthResponse> {
+    Json(HealthResponse {
+        status: "ok",
+        version: env!("CARGO_PKG_VERSION"),
+    })
 }

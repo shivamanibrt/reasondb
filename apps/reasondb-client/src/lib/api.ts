@@ -617,39 +617,58 @@ class ReasonDBClient {
    * Test connection to the server
    */
   async testConnection(): Promise<{ success: boolean; version?: string; error?: string }> {
+    const url = `${this.baseUrl}/health`
+
     try {
-      const response = await fetch(`${this.baseUrl}/health`, {
+      const { Command } = await import('@tauri-apps/plugin-shell')
+      const args = ['-s', '-m', '5', url]
+      if (this.apiKey) {
+        args.push('-H', `X-API-Key: ${this.apiKey}`)
+      }
+      const output = await Command.create('curl', args).execute()
+
+      if (output.code !== 0) {
+        return { success: false, error: output.stderr.trim() || 'curl failed' }
+      }
+
+      return this.parseHealthBody(output.stdout.trim())
+    } catch {
+      // Fallback to fetch when running outside Tauri (e.g. browser dev mode)
+    }
+
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 5000)
+    try {
+      const response = await fetch(url, {
         headers: this.apiKey ? { 'X-API-Key': this.apiKey } : {},
-        signal: AbortSignal.timeout(5000),
+        signal: controller.signal,
       })
-      
+
       if (!response.ok) {
         return {
           success: false,
           error: `Server returned ${response.status}: ${response.statusText}`,
         }
       }
-      
+
       const text = await response.text()
-      
-      try {
-        const health = JSON.parse(text) as HealthResponse
-        return {
-          success: health.status === 'ok' || health.status === 'healthy',
-          version: health.version,
-        }
-      } catch {
-        if (text.toLowerCase().includes('ok') || text.toLowerCase().includes('healthy')) {
-          return { success: true }
-        }
-        return { success: false, error: text }
-      }
+      return this.parseHealthBody(text)
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return { success: false, error: 'Connection timed out' }
+      }
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Connection failed',
       }
+    } finally {
+      clearTimeout(timeoutId)
     }
+  }
+
+  private parseHealthBody(body: string): { success: boolean; version?: string; error?: string } {
+    const health = JSON.parse(body) as HealthResponse
+    return { success: health.status === 'ok', version: health.version }
   }
 
   /**

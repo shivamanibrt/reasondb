@@ -169,10 +169,15 @@ impl TreeBuilder {
         let first_line = content.lines().next().unwrap_or(content);
         let trimmed = first_line.trim();
 
-        if trimmed.len() <= 60 {
+        if trimmed.chars().count() <= 60 {
             trimmed.to_string()
         } else {
-            format!("{}...", &trimmed[..57])
+            let end = trimmed
+                .char_indices()
+                .nth(57)
+                .map(|(i, _)| i)
+                .unwrap_or(trimmed.len());
+            format!("{}...", &trimmed[..end])
         }
     }
 

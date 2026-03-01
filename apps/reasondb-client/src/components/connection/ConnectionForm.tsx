@@ -11,15 +11,8 @@ import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Label } from '@/components/ui/Label'
 import { Switch } from '@/components/ui/Switch'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/Select'
 import { useConnectionStore, type Connection } from '@/stores/connectionStore'
-import { CircleNotch, FloppyDisk, Lightning, Trash, CheckCircle, WarningCircle } from '@phosphor-icons/react'
+import { CircleNotch, FloppyDisk, Lightning, CheckCircle, WarningCircle } from '@phosphor-icons/react'
 import { createClient } from '@/lib/api'
 
 interface ConnectionFormProps {
@@ -44,29 +37,17 @@ interface FormErrors {
   port?: string
 }
 
-const COLORS = [
-  { value: '#f87171', label: 'Red' },
-  { value: '#fdba74', label: 'Orange' },
-  { value: '#fde047', label: 'Yellow' },
-  { value: '#4ade80', label: 'Green' },
-  { value: '#5eead4', label: 'Teal' },
-  { value: '#60a5fa', label: 'Blue' },
-  { value: '#a78bfa', label: 'Violet' },
-  { value: '#f9a8d4', label: 'Pink' },
-]
-
-const DEFAULT_GROUPS = ['Production', 'Development', 'Staging', 'Local']
 
 export function ConnectionForm({ open, onOpenChange, editConnection }: ConnectionFormProps) {
-  const { addConnection, updateConnection, deleteConnection } = useConnectionStore()
-  
+  const { addConnection, updateConnection } = useConnectionStore()
+
   const [formData, setFormData] = useState<FormData>({
     name: '',
     host: 'localhost',
     port: '4444',
     apiKey: '',
     ssl: false,
-    color: COLORS[0].value,
+    color: '#60a5fa',
     group: '',
   })
   
@@ -85,7 +66,7 @@ export function ConnectionForm({ open, onOpenChange, editConnection }: Connectio
         port: editConnection?.port?.toString() ?? '4444',
         apiKey: editConnection?.apiKey ?? '',
         ssl: editConnection?.ssl ?? false,
-        color: editConnection?.color ?? COLORS[0].value,
+        color: editConnection?.color ?? '#60a5fa',
         group: editConnection?.group ?? '',
       })
       setErrors({})
@@ -177,13 +158,6 @@ export function ConnectionForm({ open, onOpenChange, editConnection }: Connectio
     onOpenChange(false)
   }
 
-  const handleDelete = () => {
-    if (editConnection) {
-      deleteConnection(editConnection.id)
-      onOpenChange(false)
-    }
-  }
-
   const updateField = <K extends keyof FormData>(field: K, value: FormData[K]) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
     // Clear error when user starts typing
@@ -269,60 +243,6 @@ export function ConnectionForm({ open, onOpenChange, editConnection }: Connectio
             />
           </div>
 
-          {/* Color and Group */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-2">
-              <Label>Color</Label>
-              <Select
-                value={formData.color}
-                onValueChange={(value) => updateField('color', value)}
-              >
-                <SelectTrigger>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: formData.color }}
-                    />
-                    <SelectValue />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  {COLORS.map((color) => (
-                    <SelectItem key={color.value} value={color.value}>
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: color.value }}
-                        />
-                        {color.label}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid gap-2">
-              <Label>Group (Optional)</Label>
-              <Select
-                value={formData.group || '__none__'}
-                onValueChange={(value) => updateField('group', value === '__none__' ? '' : value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="No group" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">No group</SelectItem>
-                  {DEFAULT_GROUPS.map((group) => (
-                    <SelectItem key={group} value={group}>
-                      {group}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
           {/* Test Result */}
           {testResult && (
             <div
@@ -347,33 +267,23 @@ export function ConnectionForm({ open, onOpenChange, editConnection }: Connectio
           )}
         </div>
 
-        <DialogFooter className="flex-row justify-between sm:justify-between">
-          <div>
-            {editConnection && (
-              <Button variant="destructive" onClick={handleDelete}>
-                <Trash size={16} className="mr-2" />
-                Delete
-              </Button>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={handleTestConnection}
+            disabled={isTesting}
+          >
+            {isTesting ? (
+              <CircleNotch size={16} className="mr-2 animate-spin" />
+            ) : (
+              <Lightning size={16} className="mr-2" weight="fill" />
             )}
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={handleTestConnection}
-              disabled={isTesting}
-            >
-              {isTesting ? (
-                <CircleNotch size={16} className="mr-2 animate-spin" />
-              ) : (
-                <Lightning size={16} className="mr-2" weight="fill" />
-              )}
-              Test
-            </Button>
-            <Button onClick={handleSave}>
-              <FloppyDisk size={16} className="mr-2" />
-              {editConnection ? 'Update' : 'Save'}
-            </Button>
-          </div>
+            Test
+          </Button>
+          <Button onClick={handleSave}>
+            <FloppyDisk size={16} className="mr-2" />
+            {editConnection ? 'Update' : 'Save'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { TitleBar } from '@/components/layout/TitleBar'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { MainPanel } from '@/components/layout/MainPanel'
@@ -8,13 +8,42 @@ import { useUiStore } from '@/stores/uiStore'
 import { useConnectionStore } from '@/stores/connectionStore'
 import { useMemoryDiagnostics } from '@/hooks/useMemoryDiagnostics'
 import { MonacoProvider } from '@/providers/MonacoProvider'
+import { createClient, setClient } from '@/lib/api'
 
 function App() {
   useMemoryDiagnostics()
   const { theme, sidebarOpen } = useUiStore()
-  const { activeConnectionId, connections } = useConnectionStore()
+  const { activeConnectionId, connections, setActiveConnection } = useConnectionStore()
 
   const activeConnection = connections.find((c) => c.id === activeConnectionId)
+
+  // On startup (or whenever activeConnectionId changes), verify the connection
+  // is reachable. If the server is down or the persisted ID is stale, clear it
+  // so the user lands on the welcome screen instead of a broken session.
+  const lastCheckedId = useRef<string | null>(null)
+  useEffect(() => {
+    if (!activeConnectionId || !activeConnection) return
+    if (lastCheckedId.current === activeConnectionId) return
+
+    lastCheckedId.current = activeConnectionId
+
+    const client = createClient({
+      host: activeConnection.host,
+      port: activeConnection.port,
+      apiKey: activeConnection.apiKey,
+      useSsl: activeConnection.ssl,
+    })
+
+    client.testConnection().then((result) => {
+      if (result.success) {
+        setClient(activeConnectionId, client)
+      } else {
+        setActiveConnection(null)
+      }
+    }).catch(() => {
+      setActiveConnection(null)
+    })
+  }, [activeConnectionId, activeConnection, setActiveConnection])
 
   useEffect(() => {
     const root = document.documentElement

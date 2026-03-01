@@ -50,7 +50,7 @@ export function MainPanel() {
     : null
   const { selectedTableId, tables, selectTable } = useTableStore()
   const { openConnectionForm, showQueryHistory, showSavedQueries, setShowQueryHistory, setShowSavedQueries } = useUiStore()
-  const { activeConnectionId } = useConnectionStore()
+  const { activeConnectionId, connections, setActiveConnection } = useConnectionStore()
   const { tabs, activeTabId, addTab, closeTab: closeTabStore, setActiveTab } = useTabsStore()
   const { setCurrentQuery } = useQueryStore()
   const tabListRef = useRef<HTMLDivElement>(null)
@@ -142,7 +142,15 @@ export function MainPanel() {
 
   const activeTab = tabs.find((t) => t.id === activeTabId)
 
-  if (!activeConnectionId) {
+  const activeConnection = connections.find((c) => c.id === activeConnectionId)
+
+  useEffect(() => {
+    if (activeConnectionId && !activeConnection) {
+      setActiveConnection(null)
+    }
+  }, [activeConnectionId, activeConnection, setActiveConnection])
+
+  if (!activeConnectionId || !activeConnection) {
     return <WelcomeScreen onNewConnection={openConnectionForm} />
   }
 

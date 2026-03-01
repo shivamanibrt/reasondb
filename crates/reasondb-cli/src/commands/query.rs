@@ -144,8 +144,9 @@ fn print_document(doc: &serde_json::Value) {
         for (key, value) in obj {
             let display_value = match value {
                 serde_json::Value::String(s) => {
-                    if s.len() > 100 {
-                        format!("{}...", &s[..100])
+                    if s.chars().count() > 100 {
+                        let end = s.char_indices().nth(100).map(|(i, _)| i).unwrap_or(s.len());
+                        format!("{}...", &s[..end])
                     } else {
                         s.clone()
                     }
