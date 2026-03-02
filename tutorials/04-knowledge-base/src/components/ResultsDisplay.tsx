@@ -1,0 +1,107 @@
+"use client"
+import { Clock, Rows, Copy, Check } from "lucide-react"
+import { useState } from "react"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Button } from "@/components/ui/button"
+import type { QueryResult } from "@/lib/api"
+
+interface Props {
+  result: QueryResult | null
+  error: string | null
+}
+
+export function ResultsDisplay({ result, error }: Props) {
+  const [copied, setCopied] = useState(false)
+
+  const copy = () => {
+    if (!result) return
+    navigator.clipboard.writeText(JSON.stringify(result.rows, null, 2))
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
+        <p className="text-sm font-medium text-destructive mb-1">Query Error</p>
+        <pre className="text-xs text-destructive/80 whitespace-pre-wrap font-mono">{error}</pre>
+      </div>
+    )
+  }
+
+  if (!result) {
+    return (
+      <div className="rounded-lg border border-dashed bg-muted/30 p-8 text-center">
+        <p className="text-sm text-muted-foreground">Run a query to see results here</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1"><Rows className="h-3.5 w-3.5" /> {result.rowCount} row{result.rowCount !== 1 ? "s" : ""}</span>
+        <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {result.executionTimeMs}ms</span>
+        <Button variant="ghost" size="sm" className="h-6 px-2 text-xs ml-auto gap-1" onClick={copy}>
+          {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+          {copied ? "Copied" : "Copy JSON"}
+        </Button>
+      </div>
+
+      <Tabs defaultValue="table">
+        <TabsList className="h-8">
+          <TabsTrigger value="table" className="text-xs h-7">Table</TabsTrigger>
+          <TabsTrigger value="json" className="text-xs h-7">JSON</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="table">
+          {result.rows.length === 0 ? (
+            <div className="rounded-md border p-6 text-center text-sm text-muted-foreground">No rows returned</div>
+          ) : (
+            <ScrollArea className="h-80 rounded-md border">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 bg-muted/80 backdrop-blur">
+                  <tr>
+                    {result.columns.map((col) => (
+                      <th key={col} className="text-left px-3 py-2 font-medium text-muted-foreground whitespace-nowrap border-b">
+                        {col}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.rows.map((row, i) => (
+                    <tr key={i} className="border-b hover:bg-muted/30 transition-colors">
+                      {result.columns.map((col) => {
+                        const val = row[col]
+                        const display =
+                          val === null || val === undefined ? <span className="text-muted-foreground/50">null</span>
+                          : typeof val === "object" ? <span className="text-blue-600">{JSON.stringify(val).slice(0, 80)}</span>
+                          : String(val).length > 120 ? String(val).slice(0, 120) + "…"
+                          : String(val)
+                        return (
+                          <td key={col} className="px-3 py-2 max-w-xs truncate align-top">
+                            {display}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </ScrollArea>
+          )}
+        </TabsContent>
+
+        <TabsContent value="json">
+          <ScrollArea className="h-80 rounded-md border bg-slate-950">
+            <pre className="p-4 text-xs text-slate-300 font-mono">
+              {JSON.stringify(result.rows, null, 2)}
+            </pre>
+          </ScrollArea>
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}
