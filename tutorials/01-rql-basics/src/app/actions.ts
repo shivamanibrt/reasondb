@@ -3,7 +3,7 @@ import path from "path"
 import fs from "fs/promises"
 
 const TABLE_NAME = "books"
-const DATA_DIR = path.resolve(process.cwd(), "../../data/books")
+const DATA_DIR = path.resolve(process.cwd(), "../data/books")
 
 interface BookMeta {
   file: string
