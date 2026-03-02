@@ -1,6 +1,6 @@
 "use client"
 import { useState, useEffect } from "react"
-import { TrendingUp, ChevronRight } from "lucide-react"
+import { TrendingUp, ChevronRight, Search, Brain, Layers } from "lucide-react"
 import { ConnectionBar } from "@/components/ConnectionBar"
 import { DataSetupPanel } from "@/components/DataSetupPanel"
 import { QueryPlayground, type ExampleQuery } from "@/components/QueryPlayground"
@@ -11,33 +11,65 @@ import { initializeDataset } from "./actions"
 import type { QueryResult } from "@/lib/api"
 
 const EXAMPLES: ExampleQuery[] = [
-  { label: "All filings", badge: "SQL", query: "SELECT title, metadata.company, metadata.year FROM financials ORDER BY metadata.company ASC" },
-  { label: "By company", badge: "SQL", query: "SELECT * FROM financials WHERE metadata.company = 'Apple Inc.'" },
-  { label: "SEARCH revenue", badge: "BM25", query: "SELECT * FROM financials SEARCH 'revenue growth net income operating margin'" },
-  { label: "SEARCH risks", badge: "BM25", query: "SELECT * FROM financials SEARCH 'risk factors competition regulatory market volatility'" },
-  { label: "REASON revenue", badge: "LLM", query: "SELECT * FROM financials REASON 'Compare revenue growth and profitability trends across Apple, Tesla, and Microsoft in FY2023'" },
-  { label: "REASON AI strategy", badge: "LLM", query: "SELECT * FROM financials REASON 'How does each company describe their AI and machine learning strategy in their annual report?'" },
-  { label: "REASON risks", badge: "LLM", query: "SELECT * FROM financials REASON 'What are the most significant risk factors common to all three companies?'" },
-  { label: "REASON competition", badge: "LLM", query: "SELECT * FROM financials REASON 'How do Apple, Tesla, and Microsoft describe their competitive landscape and what strategies do they use to maintain their advantages?'" },
-  { label: "REASON cybersecurity", badge: "LLM", query: "SELECT * FROM financials REASON 'How do these companies approach data privacy, cybersecurity risks, and regulatory compliance across their operations?'" },
-  { label: "REASON global growth", badge: "LLM", query: "SELECT * FROM financials REASON 'Which international markets and geographic expansion strategies do Apple, Tesla, and Microsoft prioritize for future growth?'" },
+  // Search
+  { label: "All filings",      badge: "SQL",    query: "SELECT title, metadata.company, metadata.year FROM financials ORDER BY metadata.company ASC" },
+  { label: "By company",       badge: "SQL",    query: "SELECT * FROM financials WHERE metadata.company = 'Apple Inc.'" },
+  { label: "SEARCH revenue",   badge: "BM25",   query: "SELECT * FROM financials SEARCH 'revenue growth net income operating margin'" },
+  { label: "SEARCH risks",     badge: "BM25",   query: "SELECT * FROM financials SEARCH 'risk factors competition regulatory market volatility'" },
+  // Reason
+  { label: "REASON revenue",      badge: "REASON", query: "SELECT * FROM financials REASON 'Compare revenue growth and profitability trends across Apple, Tesla, and Microsoft in FY2023'" },
+  { label: "REASON AI strategy",  badge: "REASON", query: "SELECT * FROM financials REASON 'How does each company describe their AI and machine learning strategy in their annual report?'" },
+  { label: "REASON risks",        badge: "REASON", query: "SELECT * FROM financials REASON 'What are the most significant risk factors common to all three companies?'" },
+  { label: "REASON competition",  badge: "REASON", query: "SELECT * FROM financials REASON 'How do Apple, Tesla, and Microsoft describe their competitive landscape and what strategies do they use to maintain their advantages?'" },
+  { label: "REASON cybersecurity",badge: "REASON", query: "SELECT * FROM financials REASON 'How do these companies approach data privacy, cybersecurity risks, and regulatory compliance across their operations?'" },
+  { label: "REASON global growth",badge: "REASON", query: "SELECT * FROM financials REASON 'Which international markets and geographic expansion strategies do Apple, Tesla, and Microsoft prioritize for future growth?'" },
+  // Combo
+  { label: "COMBO — Apple deep-dive",     badge: "COMBO", query: "SELECT * FROM financials WHERE metadata.company = 'Apple Inc.' REASON 'Based on Apple specifically, what are the key risk factors, revenue drivers, and strategic priorities outlined in their FY2023 10-K?'" },
+  { label: "COMBO — AI revenue passages", badge: "COMBO", query: "SELECT * FROM financials SEARCH 'artificial intelligence machine learning cloud services revenue' REASON 'From passages specifically about AI and cloud technology, how does each company plan to monetize these capabilities and what revenue impact do they project?'" },
+  { label: "COMBO — Tesla risk passages", badge: "COMBO", query: "SELECT * FROM financials WHERE metadata.company = 'Tesla Inc.' REASON 'Based on Tesla\\'s 10-K specifically, what are the unique operational and supply-chain risks they face compared to the other companies?'" },
 ]
 
-const STEPS = [
-  { num: 1, title: "List Filings", badge: "SQL", desc: "Browse the 3 ingested 10-K annual reports from SEC EDGAR.", exIdx: 0 },
-  { num: 2, title: "Filter by Company", badge: "SQL", desc: "Filter to a specific company's annual report.", exIdx: 1 },
-  { num: 3, title: "SEARCH Financial Terms", badge: "BM25", desc: "Search for specific financial metrics across all filings.", exIdx: 2 },
-  { num: 4, title: "REASON — Financials", badge: "LLM", desc: "Compare revenue growth and profitability across all 3 companies.", exIdx: 4 },
-  { num: 5, title: "REASON — AI Strategy", badge: "LLM", desc: "Extract and compare each company's AI/ML strategy from their 10-K.", exIdx: 5 },
-  { num: 6, title: "REASON — Risk Analysis", badge: "LLM", desc: "Identify common risk factors across Apple, Tesla, and Microsoft.", exIdx: 6 },
-  { num: 7, title: "REASON — Competition", badge: "LLM", desc: "Explore how each company describes its competitive landscape and defensive strategies.", exIdx: 7 },
-  { num: 8, title: "REASON — Cybersecurity", badge: "LLM", desc: "Understand how each company manages data privacy and cybersecurity risk.", exIdx: 8 },
-  { num: 9, title: "REASON — Global Growth", badge: "LLM", desc: "Discover which international markets each company targets for expansion.", exIdx: 9 },
+type StepGroup = "search" | "reason" | "combo"
+
+interface Step {
+  num: number
+  title: string
+  badge: string
+  desc: string
+  exIdx: number
+  group: StepGroup
+}
+
+const STEPS: Step[] = [
+  // Search
+  { num: 1,  title: "List Filings",          badge: "SQL",    desc: "Browse the 3 ingested 10-K annual reports from SEC EDGAR.",                                            exIdx: 0,  group: "search" },
+  { num: 2,  title: "Filter by Company",     badge: "SQL",    desc: "Filter to a specific company's annual report.",                                                         exIdx: 1,  group: "search" },
+  { num: 3,  title: "SEARCH Financial Terms",badge: "BM25",   desc: "Search for specific financial metrics across all filings.",                                             exIdx: 2,  group: "search" },
+  // Reason
+  { num: 4,  title: "REASON — Financials",    badge: "REASON", desc: "Compare revenue growth and profitability across all 3 companies.",                                    exIdx: 4,  group: "reason" },
+  { num: 5,  title: "REASON — AI Strategy",   badge: "REASON", desc: "Extract and compare each company's AI/ML strategy from their 10-K.",                                 exIdx: 5,  group: "reason" },
+  { num: 6,  title: "REASON — Risk Analysis", badge: "REASON", desc: "Identify common risk factors across Apple, Tesla, and Microsoft.",                                    exIdx: 6,  group: "reason" },
+  { num: 7,  title: "REASON — Competition",   badge: "REASON", desc: "Explore how each company describes its competitive landscape and defensive strategies.",              exIdx: 7,  group: "reason" },
+  { num: 8,  title: "REASON — Cybersecurity", badge: "REASON", desc: "Understand how each company manages data privacy and cybersecurity risk.",                            exIdx: 8,  group: "reason" },
+  { num: 9,  title: "REASON — Global Growth", badge: "REASON", desc: "Discover which international markets each company targets for expansion.",                            exIdx: 9,  group: "reason" },
+  // Combo
+  { num: 10, title: "COMBO — Apple Deep-Dive",    badge: "COMBO", desc: "Filter to Apple's 10-K, then reason about its specific risks, drivers, and strategy.",           exIdx: 10, group: "combo" },
+  { num: 11, title: "COMBO — AI Revenue Passages",badge: "COMBO", desc: "Search AI/cloud passages, then reason about monetization plans across all companies.",            exIdx: 11, group: "combo" },
+  { num: 12, title: "COMBO — Tesla Risk Profile",  badge: "COMBO", desc: "Filter to Tesla's 10-K, then reason about its unique operational and supply-chain risks.",       exIdx: 12, group: "combo" },
 ]
 
 const BADGE_COLORS: Record<string, string> = {
-  SQL: "bg-slate-100 text-slate-700", BM25: "bg-amber-100 text-amber-800",
-  LLM: "bg-purple-100 text-purple-800", AGG: "bg-blue-100 text-blue-800",
+  SQL:    "bg-slate-100 text-slate-700",
+  BM25:   "bg-amber-100 text-amber-800",
+  REASON: "bg-purple-100 text-purple-800",
+  AGG:    "bg-blue-100 text-blue-800",
+  COMBO:  "bg-rose-100 text-rose-800",
+}
+
+const GROUP_META: Record<StepGroup, { label: string; icon: React.ReactNode; color: string }> = {
+  search: { label: "Search",      icon: <Search className="h-3 w-3" />, color: "text-slate-500" },
+  reason: { label: "Reason",      icon: <Brain className="h-3 w-3" />,  color: "text-purple-600" },
+  combo:  { label: "Combination", icon: <Layers className="h-3 w-3" />, color: "text-rose-600" },
 }
 
 export default function Page() {
@@ -58,6 +90,8 @@ export default function Page() {
 
   const handleUrlChange = (url: string) => { setServerUrl(url); localStorage.setItem("reasondb_server_url", url) }
   const handleKeyChange = (key: string) => { setApiKey(key); localStorage.setItem("reasondb_api_key", key) }
+
+  const groups: StepGroup[] = ["search", "reason", "combo"]
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -82,20 +116,37 @@ export default function Page() {
               onInitialize={initializeDataset} onReady={() => setIsDataReady(true)}
             />
           </div>
-          <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide px-1 mb-2">Query Steps</p>
-            {STEPS.map((step) => (
-              <div key={step.num} className={`rounded-md border p-3 space-y-1.5 cursor-pointer transition-colors ${activeStep === step.num ? "border-teal-200 bg-teal-50" : "hover:bg-muted/40"}`}
-                onClick={() => { setActiveStep(step.num); setPlaygroundIdx(step.exIdx); setResult(null); setError(null) }}>
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground shrink-0">{step.num}</span>
-                  <span className="text-xs font-medium flex-1">{step.title}</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${BADGE_COLORS[step.badge]}`}>{step.badge}</span>
+          <div className="flex-1 overflow-y-auto p-3 space-y-3">
+            {groups.map((group) => {
+              const meta = GROUP_META[group]
+              const groupSteps = STEPS.filter((s) => s.group === group)
+              return (
+                <div key={group}>
+                  <div className={`flex items-center gap-1.5 px-1 mb-1.5 ${meta.color}`}>
+                    {meta.icon}
+                    <p className="text-[11px] font-semibold uppercase tracking-wide">{meta.label}</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    {groupSteps.map((step) => (
+                      <div key={step.num}
+                        className={`rounded-md border p-3 space-y-1.5 cursor-pointer transition-colors ${activeStep === step.num ? "border-teal-200 bg-teal-50" : "hover:bg-muted/40"}`}
+                        onClick={() => { setActiveStep(step.num); setPlaygroundIdx(step.exIdx); setResult(null); setError(null) }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground shrink-0">{step.num}</span>
+                          <span className="text-xs font-medium flex-1">{step.title}</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${BADGE_COLORS[step.badge]}`}>{step.badge}</span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground pl-7">{step.desc}</p>
+                        <div className="pl-7">
+                          <button className="flex items-center gap-1 text-[11px] text-teal-700 hover:text-teal-900 font-medium">Try it <ChevronRight className="h-3 w-3" /></button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <p className="text-[11px] text-muted-foreground pl-7">{step.desc}</p>
-                <div className="pl-7"><button className="flex items-center gap-1 text-[11px] text-teal-700 hover:text-teal-900 font-medium">Try it <ChevronRight className="h-3 w-3" /></button></div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
         <div className="flex-1 flex flex-col overflow-hidden">

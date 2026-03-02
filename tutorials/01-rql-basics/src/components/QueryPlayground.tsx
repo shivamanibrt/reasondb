@@ -12,7 +12,7 @@ const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false 
 export interface ExampleQuery {
   label: string
   query: string
-  badge?: "BM25" | "LLM" | "AGG" | "SQL"
+  badge?: "BM25" | "REASON" | "AGG" | "SQL" | "COMBO"
 }
 
 interface Props {
@@ -28,7 +28,8 @@ interface Props {
 
 const BADGE_STYLES: Record<string, string> = {
   BM25: "bg-amber-100 text-amber-800 border-amber-200",
-  LLM: "bg-purple-100 text-purple-800 border-purple-200",
+  REASON: "bg-purple-100 text-purple-800 border-purple-200",
+  COMBO: "bg-rose-100 text-rose-800 border-rose-200",
   AGG: "bg-blue-100 text-blue-800 border-blue-200",
   SQL: "bg-slate-100 text-slate-700 border-slate-200",
 }
@@ -186,7 +187,7 @@ export function QueryPlayground({
       <div className="flex items-center gap-2">
         <Button onClick={run} disabled={running || !isDataReady} className="gap-2">
           {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-          {running ? "Running…" : isReason ? "Run with LLM" : "Run Query"}
+          {running ? "Running…" : isReason ? "Run with Reason" : "Run Query"}
         </Button>
         <Button
           variant="outline"
