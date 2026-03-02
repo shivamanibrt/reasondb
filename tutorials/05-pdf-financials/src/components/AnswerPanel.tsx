@@ -115,7 +115,6 @@ function CitationBadge({
             <p className="text-[11px] font-semibold text-foreground leading-tight">{label}</p>
           </div>
           <p className="text-[10px] text-muted-foreground leading-relaxed">{excerpt}</p>
-          {/* Arrow pointing down */}
           <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-border" />
         </div>
       )}
@@ -137,6 +136,10 @@ export function AnswerPanel({ result }: Props) {
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL)
   const [modelsLoading, setModelsLoading] = useState(false)
   const [modelsFetched, setModelsFetched] = useState(false)
+
+  // Extract early so hooks below can use them (all hooks must run before any return)
+  const nodes = result?.matchedNodes
+  const question = result?.question
 
   const fetchModels = async () => {
     if (modelsFetched || modelsLoading) return
@@ -164,15 +167,8 @@ export function AnswerPanel({ result }: Props) {
     setTimeout(() => setHighlightedIdx(null), 1500)
   }, [])
 
-  const nodes = result?.matchedNodes
-  const question = result?.question
-
-  if (!nodes || nodes.length === 0 || !question) return null
-
-  const avgConfidence = nodes.reduce((s, n) => s + n.confidence, 0) / nodes.length
-  const selectedNode = selectedSourceIdx !== null ? nodes[selectedSourceIdx] : null
-
-  const generate = async () => {
+  const generate = useCallback(async () => {
+    if (!nodes?.length || !question) return
     if (abortRef.current) abortRef.current.abort()
     const ctrl = new AbortController()
     abortRef.current = ctrl
@@ -219,7 +215,32 @@ export function AnswerPanel({ result }: Props) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [nodes, question, selectedModel]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep a stable ref to the latest generate so the auto-trigger effect never goes stale
+  const generateFnRef = useRef(generate)
+  generateFnRef.current = generate
+
+  // Auto-generate when a new REASON result arrives
+  const prevResultKeyRef = useRef("")
+  useEffect(() => {
+    const key = `${question ?? ""}|${nodes?.length ?? 0}`
+    if (!nodes?.length || !question) { prevResultKeyRef.current = ""; return }
+    if (key === prevResultKeyRef.current) return
+    prevResultKeyRef.current = key
+    // Reset UI state for the new result, then kick off generation
+    setAnswer("")
+    setError(null)
+    setHighlightedIdx(null)
+    setSelectedSourceIdx(null)
+    generateFnRef.current()
+  }, [result]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Guard: only render for REASON queries that returned matched nodes
+  if (!nodes || nodes.length === 0 || !question) return null
+
+  const avgConfidence = nodes.reduce((s, n) => s + n.confidence, 0) / nodes.length
+  const selectedNode = selectedSourceIdx !== null ? nodes[selectedSourceIdx] : null
 
   return (
     <div className="rounded-lg border bg-gradient-to-br from-purple-50/60 to-slate-50 dark:from-purple-950/20 dark:to-slate-900/40 overflow-hidden">

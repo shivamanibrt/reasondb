@@ -24,9 +24,9 @@ const EXAMPLES: ExampleQuery[] = [
   { label: "REASON high-risk AI",     badge: "REASON", query: "SELECT * FROM regulations REASON 'How do these regulations define high-risk AI applications and what special obligations apply to them?'" },
   { label: "REASON individual rights",badge: "REASON", query: "SELECT * FROM regulations REASON 'What rights do individuals have when subject to automated AI decision-making under these regulations?'" },
   // Combo
-  { label: "COMBO — AI policy + enforcement", badge: "COMBO", query: "SELECT * FROM regulations WHERE metadata.topic = 'ai_policy' REASON 'Within these AI policy documents specifically, what enforcement mechanisms and penalties are proposed for non-compliance?'" },
-  { label: "COMBO — liability passages",      badge: "COMBO", query: "SELECT * FROM regulations SEARCH 'liability accountability transparency disclosure' REASON 'From passages specifically about liability and transparency, what concrete obligations are placed on AI developers and deployers?'" },
-  { label: "COMBO — safety + ADS",            badge: "COMBO", query: "SELECT * FROM regulations SEARCH 'safety autonomous vehicle automated driving' REASON 'Based on these safety-related passages, what are the specific technical and operational requirements for autonomous systems?'" },
+  { label: "COMBO — ADS safety requirements",  badge: "COMBO", query: "SELECT * FROM regulations WHERE metadata.topic = 'ai_safety' REASON 'Based on the ADS regulation specifically, what are the technical and operational safety requirements proposed for automated driving systems?'" },
+  { label: "COMBO — liability passages",       badge: "COMBO", query: "SELECT * FROM regulations SEARCH 'liability accountability transparency disclosure obligation' REASON 'From passages specifically about accountability and transparency, what concrete legal obligations are placed on AI developers and deployers?'" },
+  { label: "COMBO — copyright + AI works",     badge: "COMBO", query: "SELECT * FROM regulations WHERE metadata.topic = 'ai_copyright' REASON 'Based on the AI and copyright regulation, what are the key unresolved questions about copyright ownership and liability for AI-generated works?'" },
 ]
 
 type StepGroup = "search" | "reason" | "combo"
@@ -53,9 +53,9 @@ const STEPS: Step[] = [
   { num: 8,  title: "REASON — High-Risk AI",    badge: "REASON", desc: "Understand how high-risk AI applications are defined and what special obligations apply.",           exIdx: 8,  group: "reason" },
   { num: 9,  title: "REASON — Individual Rights",badge: "REASON",desc: "Discover what rights individuals hold when subject to automated AI decision-making.",                exIdx: 9,  group: "reason" },
   // Combo
-  { num: 10, title: "COMBO — Policy + Enforcement", badge: "COMBO", desc: "Filter to ai_policy docs, then reason about specific enforcement mechanisms.",                   exIdx: 10, group: "combo" },
-  { num: 11, title: "COMBO — Liability Passages",   badge: "COMBO", desc: "BM25-search for liability clauses, then reason about obligations on developers.",                 exIdx: 11, group: "combo" },
-  { num: 12, title: "COMBO — ADS Safety",           badge: "COMBO", desc: "Search autonomous-vehicle safety passages, then reason about technical requirements.",            exIdx: 12, group: "combo" },
+  { num: 10, title: "COMBO — ADS Safety",          badge: "COMBO", desc: "Filter to the ai_safety document, then reason about specific technical requirements for automated driving.",  exIdx: 10, group: "combo" },
+  { num: 11, title: "COMBO — Liability Passages",  badge: "COMBO", desc: "BM25-search for accountability passages, then reason about legal obligations on AI developers.",             exIdx: 11, group: "combo" },
+  { num: 12, title: "COMBO — Copyright & AI",      badge: "COMBO", desc: "Filter to the copyright regulation, then reason about ownership questions for AI-generated works.",         exIdx: 12, group: "combo" },
 ]
 
 const BADGE_COLORS: Record<string, string> = {
