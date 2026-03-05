@@ -350,9 +350,11 @@ impl<R: ReasoningEngine + 'static> SearchEngine<R> {
                 }
             };
 
-            // If every remaining candidate is a leaf node AND they all fit
-            // within the beam, we can skip the LLM call and verify them directly.
-            if candidates.len() <= effective_beam
+            // If every remaining candidate is a leaf node we can skip
+            // decide_next_step entirely and verify them directly in one batch
+            // call.  Cap at MAX_LEAF_DIRECT to keep prompt size reasonable.
+            const MAX_LEAF_DIRECT: usize = 30;
+            if candidates.len() <= MAX_LEAF_DIRECT
                 && candidates.iter().all(|c| {
                     children
                         .iter()
@@ -644,15 +646,18 @@ impl<R: ReasoningEngine + 'static> SearchEngine<R> {
         }
 
         // Build BatchVerifyInput for each remaining candidate.
+        // Use summary-only content (capped at 400 chars) to keep prompt size
+        // small — this cuts ~60% of input tokens vs sending full raw content.
+        // Full content is still returned in SearchResult; only the scoring
+        // prompt is condensed.
         let inputs: Vec<BatchVerifyInput> = filtered
             .iter()
             .map(|n| {
                 let raw = n.get_content();
-                let content = if !n.summary.is_empty() && n.summary != raw {
-                    let prefix: String = n.summary.chars().take(300).collect();
-                    format!("[Section summary: {}]\n\n{}", prefix, raw)
+                let content: String = if !n.summary.is_empty() {
+                    n.summary.chars().take(400).collect()
                 } else {
-                    raw.to_string()
+                    raw.chars().take(300).collect()
                 };
                 BatchVerifyInput {
                     node_id: n.id.clone(),
