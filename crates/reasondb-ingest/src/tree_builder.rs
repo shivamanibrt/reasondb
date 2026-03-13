@@ -20,7 +20,12 @@ struct BuildNode {
     children: Vec<String>,
     parent_id: Option<String>,
     page_number: Option<u32>,
+    start_line: Option<u32>,
+    end_line: Option<u32>,
+    attributes: std::collections::HashMap<String, String>,
     is_leaf: bool,
+    /// Pre-supplied summary from the caller; skips LLM generation when set.
+    summary: Option<String>,
 }
 
 /// Builder for constructing hierarchical document trees
@@ -109,7 +114,11 @@ impl TreeBuilder {
             children: Vec::new(),
             parent_id: None,
             page_number: None,
+            start_line: None,
+            end_line: None,
+            attributes: std::collections::HashMap::new(),
             is_leaf: false,
+            summary: None,
         });
 
         // Process each chunk
@@ -143,7 +152,11 @@ impl TreeBuilder {
                 children: Vec::new(),
                 parent_id: Some(parent_id.clone()),
                 page_number: chunk.start_page.map(|p| p as u32),
+                start_line: chunk.start_line,
+                end_line: chunk.end_line,
+                attributes: chunk.attributes.clone(),
                 is_leaf: true, // Will update if children are added
+                summary: chunk.summary.clone(),
             };
 
             nodes.push(node);
@@ -183,12 +196,13 @@ impl TreeBuilder {
 
     /// Convert BuildNode to PageNode
     fn to_page_node(&self, node: BuildNode, document_id: &str) -> PageNode {
+        let pre_supplied_summary = node.summary.clone();
         let mut page_node = if node.is_leaf && !node.content.is_empty() {
             PageNode::new_leaf(
                 document_id.to_string(),
                 node.title.clone(),
                 node.content.clone(),
-                String::new(), // Summary will be filled by summarizer
+                pre_supplied_summary.clone().unwrap_or_default(),
                 node.depth,
             )
         } else {
@@ -207,9 +221,17 @@ impl TreeBuilder {
         page_node.start_index = 0;
         page_node.end_index = node.content.len();
 
+        let mut metadata = NodeMetadata::default();
         if let Some(page_num) = node.page_number {
-            page_node.metadata = NodeMetadata::default().with_page(page_num);
+            metadata = metadata.with_page(page_num);
         }
+        if let (Some(start), Some(end)) = (node.start_line, node.end_line) {
+            metadata = metadata.with_lines(start, end);
+        }
+        for (k, v) in node.attributes {
+            metadata = metadata.with_attribute(&k, &v);
+        }
+        page_node.metadata = metadata;
 
         page_node
     }
@@ -271,6 +293,10 @@ impl TreeBuilder {
                     word_count: char_count / 5, // Rough estimate
                     start_page: heading.page_number,
                     end_page: headings.get(i + 1).and_then(|h| h.page_number),
+                    start_line: None,
+                    end_line: None,
+                    attributes: Default::default(),
+                    summary: None,
                 });
             }
         }
@@ -341,6 +367,10 @@ mod tests {
                 word_count: 3,
                 start_page: Some(1),
                 end_page: Some(5),
+                start_line: None,
+                end_line: None,
+                attributes: Default::default(),
+                summary: None,
             },
             TextChunk {
                 id: "2".to_string(),
@@ -355,6 +385,10 @@ mod tests {
                 word_count: 2,
                 start_page: Some(2),
                 end_page: Some(3),
+                start_line: None,
+                end_line: None,
+                attributes: Default::default(),
+                summary: None,
             },
             TextChunk {
                 id: "3".to_string(),
@@ -369,6 +403,10 @@ mod tests {
                 word_count: 3,
                 start_page: Some(10),
                 end_page: Some(20),
+                start_line: None,
+                end_line: None,
+                attributes: Default::default(),
+                summary: None,
             },
         ];
 
@@ -411,6 +449,10 @@ mod tests {
                 word_count: 2,
                 start_page: None,
                 end_page: None,
+                start_line: None,
+                end_line: None,
+                attributes: Default::default(),
+                summary: None,
             },
             TextChunk {
                 id: "2".to_string(),
@@ -425,6 +467,10 @@ mod tests {
                 word_count: 2,
                 start_page: None,
                 end_page: None,
+                start_line: None,
+                end_line: None,
+                attributes: Default::default(),
+                summary: None,
             },
             TextChunk {
                 id: "3".to_string(),
@@ -439,6 +485,10 @@ mod tests {
                 word_count: 2,
                 start_page: None,
                 end_page: None,
+                start_line: None,
+                end_line: None,
+                attributes: Default::default(),
+                summary: None,
             },
         ];
 

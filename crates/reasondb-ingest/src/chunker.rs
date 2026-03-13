@@ -39,6 +39,15 @@ pub struct TextChunk {
     pub start_page: Option<usize>,
     /// End page number
     pub end_page: Option<usize>,
+    /// Start line number in the source file
+    pub start_line: Option<u32>,
+    /// End line number in the source file
+    pub end_line: Option<u32>,
+    /// Extra caller-supplied attributes passed through to NodeMetadata.attributes
+    pub attributes: std::collections::HashMap<String, String>,
+    /// Optional pre-computed summary. When set, the BatchSummarizer will skip
+    /// this node and use this value directly as the node summary.
+    pub summary: Option<String>,
 }
 
 /// Chunking strategy to use during document ingestion
@@ -174,6 +183,10 @@ impl SemanticChunker {
                 word_count,
                 start_page: None,
                 end_page: None,
+                start_line: None,
+                end_line: None,
+                attributes: Default::default(),
+                summary: None,
             });
         }
 
