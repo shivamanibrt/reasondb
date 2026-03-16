@@ -1115,7 +1115,7 @@ class ReasonDBClient {
 
             buffer += decoder.decode(value, { stream: true })
 
-            // Parse SSE events from buffer
+            // Parse SSE events from buffer — keep the last incomplete line
             const lines = buffer.split('\n')
             buffer = lines.pop() || ''
 
@@ -1150,7 +1150,28 @@ class ReasonDBClient {
             }
           }
 
-          // Stream ended without a complete event
+          // Flush the decoder and any remaining buffered bytes after the stream closes.
+          // If the server omits the trailing blank line after the final event, the
+          // complete/error data stays in `buffer` and would be silently dropped above.
+          buffer += decoder.decode()
+          if (buffer.trim()) {
+            let eventType = ''
+            let eventData = ''
+            for (const line of buffer.split('\n')) {
+              if (line.startsWith('event:')) eventType = line.slice(6).trim()
+              else if (line.startsWith('data:')) eventData = line.slice(5).trim()
+            }
+            if (eventType === 'complete' && eventData) {
+              try {
+                resolve(this.transformQueryResponse(JSON.parse(eventData) as QueryServerResponse))
+                return
+              } catch { /* fall through to reject below */ }
+            } else if (eventType === 'error' && eventData) {
+              reject(new Error(eventData))
+              return
+            }
+          }
+
           reject(new Error('Stream ended without results'))
         } catch (err) {
           reject(err)

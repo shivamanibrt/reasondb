@@ -280,14 +280,25 @@ export default function QueryEditor({ onExecute, tabId, initialQuery = '', onQue
   })
 
   // Statement highlight decorations
-  const decorationsRef = useRef<string[]>([])
+  // Use createDecorationsCollection (Monaco 0.34+) instead of the deprecated
+  // deltaDecorations — the old API can re-enter its own view-event cycle and
+  // throw "Invoking deltaDecorations recursively could lead to leaking decorations".
+  const decorationCollectionRef = useRef<Monaco.editor.IEditorDecorationsCollection | null>(null)
   useEffect(() => {
     if (!editor || !monaco) return
+
+    if (!decorationCollectionRef.current) {
+      decorationCollectionRef.current = editor.createDecorationsCollection([])
+    }
+    const collection = decorationCollectionRef.current
 
     const updateDecoration = () => {
       const model = editor.getModel()
       const position = editor.getPosition()
-      if (!model || !position) return
+      if (!model || !position) {
+        collection.clear()
+        return
+      }
 
       const fullText = model.getValue()
       const cursorOffset = model.getOffsetAt(position)
@@ -307,19 +318,23 @@ export default function QueryEditor({ onExecute, tabId, initialQuery = '', onQue
       }
 
       if (rangeToHighlight) {
-        decorationsRef.current = editor.deltaDecorations(decorationsRef.current, [{
+        collection.set([{
           range: rangeToHighlight,
           options: { isWholeLine: true, className: 'active-statement-highlight' },
         }])
       } else {
-        decorationsRef.current = editor.deltaDecorations(decorationsRef.current, [])
+        collection.clear()
       }
     }
 
     updateDecoration()
     const d1 = editor.onDidChangeCursorPosition(updateDecoration)
     const d2 = editor.onDidChangeModelContent(updateDecoration)
-    return () => { d1.dispose(); d2.dispose() }
+    return () => {
+      d1.dispose()
+      d2.dispose()
+      collection.clear()
+    }
   }, [editor, monaco, getQuerySegments])
 
   // Real-time syntax validation

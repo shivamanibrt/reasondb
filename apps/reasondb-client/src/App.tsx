@@ -9,13 +9,30 @@ import { useConnectionStore } from '@/stores/connectionStore'
 import { useMemoryDiagnostics } from '@/hooks/useMemoryDiagnostics'
 import { MonacoProvider } from '@/providers/MonacoProvider'
 import { createClient, setClient } from '@/lib/api'
+import { getApiKey } from '@/lib/keychain'
 
 function App() {
   useMemoryDiagnostics()
   const { theme, sidebarOpen } = useUiStore()
-  const { activeConnectionId, connections, setActiveConnection } = useConnectionStore()
+  const { activeConnectionId, connections, setActiveConnection, updateConnection } = useConnectionStore()
 
   const activeConnection = connections.find((c) => c.id === activeConnectionId)
+
+  // Rehydrate API keys from the OS keychain into the in-memory connection store.
+  // Runs once on mount — keys are stripped from localStorage (see connectionStore)
+  // so this is the only persistent source.
+  useEffect(() => {
+    connections.forEach(async (conn) => {
+      if (conn.apiKey) return // already in memory
+      try {
+        const key = await getApiKey(conn.id)
+        if (key) updateConnection(conn.id, { apiKey: key })
+      } catch {
+        // keychain unavailable or entry missing — silently ignore
+      }
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // intentionally run once on mount only
 
   // On startup (or whenever activeConnectionId changes), verify the connection
   // is reachable. If the server is down or the persisted ID is stale, clear it

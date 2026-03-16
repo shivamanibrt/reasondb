@@ -20,6 +20,7 @@ import { ConnectionForm } from '@/components/connection/ConnectionForm'
 import { ApiKeyPromptDialog } from '@/components/connection/ApiKeyPromptDialog'
 import { TableBrowser } from '@/components/table/TableBrowser'
 import { createClient, setClient, removeClient, type ReasonDBClient } from '@/lib/api'
+import { storeApiKey } from '@/lib/keychain'
 
 export function Sidebar() {
   const { 
@@ -27,6 +28,7 @@ export function Sidebar() {
     setActiveConnection, 
     setConnecting, 
     setConnectionError,
+    updateConnection,
   } = useConnectionStore()
   const { showConnectionForm, setShowConnectionForm, setShowQueryHistory, setShowSavedQueries } = useUiStore()
   const { history, savedQueries } = useQueryStore()
@@ -89,7 +91,9 @@ export function Sidebar() {
       return false
     }
 
-    // Key is valid — complete the connection
+    // Key is valid — persist to OS keychain and update in-memory store
+    await storeApiKey(pendingAuthConnection.id, apiKey)
+    updateConnection(pendingAuthConnection.id, { apiKey })
     setClient(pendingAuthConnection.id, client)
     setActiveConnection(pendingAuthConnection.id)
     setPendingAuthConnection(null)

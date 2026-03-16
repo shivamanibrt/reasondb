@@ -4,7 +4,7 @@
 
 use axum::{
     extract::{Path, State},
-    response::sse::{Event, Sse},
+    response::sse::{Event, KeepAlive, Sse},
     Json,
 };
 use futures::stream::{Stream, StreamExt};
@@ -18,6 +18,7 @@ use reasondb_core::trace::{QueryTrace, QueryTraceSummary};
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use utoipa::ToSchema;
@@ -879,7 +880,15 @@ pub async fn execute_query_stream<R: ReasoningEngine + Clone + Send + Sync + 'st
     }
 
     let stream = ReceiverStream::new(sse_rx).map(Ok::<_, Infallible>);
-    Ok(Sse::new(stream))
+    // Keep-alive heartbeats every 15 s so NAT gateways and stateful firewalls
+    // don't silently tear down the connection during long REASON queries.
+    // Without this, connections over the internet drop after ~30-60 s of
+    // silence and the client receives "Stream ended without results".
+    Ok(Sse::new(stream).keep_alive(
+        KeepAlive::new()
+            .interval(Duration::from_secs(15))
+            .text("heartbeat"),
+    ))
 }
 
 // ---------------------------------------------------------------------------

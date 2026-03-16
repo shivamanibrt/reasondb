@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { deleteApiKey } from '@/lib/keychain'
 
 export interface Connection {
   id: string
@@ -62,12 +63,14 @@ export const useConnectionStore = create<ConnectionState>()(
           ),
         })),
 
-      deleteConnection: (id) =>
+      deleteConnection: (id) => {
+        deleteApiKey(id).catch(() => {}) // best-effort keychain cleanup
         set((state) => ({
           connections: state.connections.filter((conn) => conn.id !== id),
           activeConnectionId:
             state.activeConnectionId === id ? null : state.activeConnectionId,
-        })),
+        }))
+      },
 
       setActiveConnection: (id) =>
         set((state) => {
